@@ -24,7 +24,8 @@ class TelaJogo extends ConsumerWidget {
         );
       }
       // Mostra o diálogo de fim de jogo quando a partida termina.
-      if (next.estadoJogo?.jogoTerminou == true && previous?.estadoJogo?.jogoTerminou == false) {
+      if (next.estadoJogo?.jogoTerminou == true &&
+          previous?.estadoJogo?.jogoTerminou == false) {
         _mostrarDialogoFimDeJogo(context, next.estadoJogo!, ref);
       }
     });
@@ -43,7 +44,7 @@ class TelaJogo extends ConsumerWidget {
             ),
           ),
           // Mostra um indicador de carregamento enquanto conecta ou o estado é nulo
-          if (estadoJogo == null) 
+          if (estadoJogo == null)
             const Center(
               child: Card(
                 color: Colors.black54,
@@ -54,7 +55,10 @@ class TelaJogo extends ConsumerWidget {
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 16),
-                      Text('Conectando ao servidor...', style: TextStyle(color: Colors.white)),
+                      Text(
+                        'Conectando ao servidor...',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ],
                   ),
                 ),
@@ -69,8 +73,9 @@ class TelaJogo extends ConsumerWidget {
                   estadoJogo: estadoJogo,
                   idPecaSelecionada: uiState.idPecaSelecionada,
                   // Ao tocar numa peça, chama o método do notifier.
-                  onPecaTap: (idPeca) =>
-                      ref.read(gameStateProvider.notifier).selecionarPeca(idPeca),
+                  onPecaTap: (idPeca) => ref
+                      .read(gameStateProvider.notifier)
+                      .selecionarPeca(idPeca),
                   // Ao tocar numa posição, chama o método do notifier.
                   onPosicaoTap: (posicao) =>
                       ref.read(gameStateProvider.notifier).moverPeca(posicao),

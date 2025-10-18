@@ -24,18 +24,26 @@ class GameSocketService {
 
       _channel.stream.listen(
         (message) {
-          final data = jsonDecode(message);
-          final type = data['type'];
+          try {
+            final data = jsonDecode(message);
+            final type = data['type'];
 
-          if (type == 'atualizacaoEstado') {
-            final estado = EstadoJogo.fromJson(data['payload']);
-            _estadoController.add(estado);
-          } else if (type == 'erroMovimento') {
-            final erro = data['payload']?['mensagem'] ?? 'Erro desconhecido do servidor.';
-            _erroController.add(erro);
-          } else if (type == 'mensagemServidor') {
-            // Pode ser usado para mostrar mensagens informativas na UI
-            print('Mensagem do Servidor: ${data['payload']}');
+            if (type == 'atualizacaoEstado') {
+              print('DEBUG: Recebido estado do servidor.');
+              final estado = EstadoJogo.fromJson(data['payload']);
+              _estadoController.add(estado);
+            } else if (type == 'erroMovimento') {
+              final erro = data['payload']?['mensagem'] ?? 'Erro desconhecido do servidor.';
+              _erroController.add(erro);
+            } else if (type == 'mensagemServidor') {
+              print('Mensagem do Servidor: ${data['payload']}');
+            }
+          } catch (e, s) {
+            print('!!!!!! ERRO AO PROCESSAR MENSAGEM DO SERVIDOR !!!!!!');
+            print('DADOS BRUTOS: $message');
+            print('ERRO: $e');
+            print('STACK TRACE: $s');
+            _erroController.add('Erro ao ler dados do servidor.');
           }
         },
         onError: (error) {

@@ -1,4 +1,3 @@
-
 const express = require('express');
 const http = require('http');
 const { WebSocketServer } = require('ws');
@@ -54,22 +53,22 @@ class GameControllerServer {
 
     if (pecaDefensora) {
         const resultadoCombate = this._resolverCombate(pecaAMover, pecaDefensora);
-        // A peça defensora é sempre revelada no combate
-        const idxDefensora = pecasAtualizadas.findIndex(p => p.id === pecaDefensora.id);
-        if(idxDefensora > -1) pecasAtualizadas[idxDefensora].foiRevelada = true;
-
-        pecasAtualizadas = pecasAtualizadas.filter(p => p.id !== resultadoCombate.perdedor?.id);
         
+        // Revela ambas as peças no combate
+        const idxAtacanteOriginal = pecasAtualizadas.findIndex(p => p.id === pecaAMover.id);
+        if(idxAtacanteOriginal > -1) pecasAtualizadas[idxAtacanteOriginal].foiRevelada = true;
+        const idxDefensoraOriginal = pecasAtualizadas.findIndex(p => p.id === pecaDefensora.id);
+        if(idxDefensoraOriginal > -1) pecasAtualizadas[idxDefensoraOriginal].foiRevelada = true;
+
         if (resultadoCombate.vencedor) {
-            const idxVencedora = pecasAtualizadas.findIndex(p => p.id === resultadoCombate.vencedor.id);
-            if(idxVencedora > -1) {
-                pecasAtualizadas[idxVencedora].foiRevelada = true;
-                // Se o atacante venceu, ele se move
-                if (resultadoCombate.vencedor.id === pecaAMover.id) {
-                    pecasAtualizadas[idxVencedora].posicao = novaPosicao;
-                }
+            // Remove a peça perdedora
+            pecasAtualizadas = pecasAtualizadas.filter(p => p.id !== resultadoCombate.perdedor.id);
+            // Se o atacante venceu, ele se move para a nova posição
+            if (resultadoCombate.vencedor.id === pecaAMover.id) {
+                const idxVencedora = pecasAtualizadas.findIndex(p => p.id === resultadoCombate.vencedor.id);
+                if(idxVencedora > -1) pecasAtualizadas[idxVencedora].posicao = novaPosicao;
             }
-        } else { // Empate
+        } else { // Empate, remove ambas
             pecasAtualizadas = pecasAtualizadas.filter(p => p.id !== pecaAMover.id && p.id !== pecaDefensora.id);
         }
     } else {
@@ -86,7 +85,7 @@ class GameControllerServer {
   }
 
   _validarMovimento(peca, novaPosicao, pecas) {
-    if (Patentes[peca.patente].id === 'minaTerrestre' || Patentes[peca.patente].id === 'prisioneiro') return "Esta peça não pode se mover.";
+    if (peca.patente === 'minaTerrestre' || peca.patente === 'prisioneiro') return "Esta peça não pode se mover.";
     if (peca.posicao.linha === novaPosicao.linha && peca.posicao.coluna === novaPosicao.coluna) return "Movimento inválido.";
     if (peca.posicao.linha !== novaPosicao.linha && peca.posicao.coluna !== novaPosicao.coluna) return "Movimentos na diagonal não são permitidos.";
     if (GameControllerServer.lagos.has(`${novaPosicao.linha}-${novaPosicao.coluna}`)) return "Não é possível mover para um lago.";
@@ -95,7 +94,7 @@ class GameControllerServer {
     if (pecaNoDestino && pecaNoDestino.equipe === peca.equipe) return "Não é possível mover para uma casa ocupada por uma peça aliada.";
 
     const distancia = Math.abs(peca.posicao.linha - novaPosicao.linha) + Math.abs(peca.posicao.coluna - novaPosicao.coluna);
-    if (Patentes[peca.patente].id !== 'soldado' && distancia > 1) return "Esta peça só pode se mover uma casa por vez.";
+    if (peca.patente !== 'soldado' && distancia > 1) return "Esta peça só pode se mover uma casa por vez.";
     
     return null;
   }
@@ -104,9 +103,9 @@ class GameControllerServer {
     const forcaAtacante = Patentes[atacante.patente].forca;
     const forcaDefendida = Patentes[defendida.patente].forca;
 
-    if (Patentes[atacante.patente].id === 'agenteSecreto' && Patentes[defendida.patente].id === 'general') return { vencedor: atacante, perdedor: defendida };
-    if (Patentes[defendida.patente].id === 'minaTerrestre') {
-        return Patentes[atacante.patente].id === 'cabo' ? { vencedor: atacante, perdedor: defendida } : { vencedor: defendida, perdedor: atacante };
+    if (atacante.patente === 'agenteSecreto' && defendida.patente === 'general') return { vencedor: atacante, perdedor: defendida };
+    if (defendida.patente === 'minaTerrestre') {
+        return atacante.patente === 'cabo' ? { vencedor: atacante, perdedor: defendida } : { vencedor: defendida, perdedor: atacante };
     }
     if (forcaAtacante > forcaDefendida) return { vencedor: atacante, perdedor: defendida };
     if (forcaDefendida > forcaAtacante) return { vencedor: defendida, perdedor: atacante };
@@ -209,7 +208,6 @@ wss.on('connection', (ws) => {
 });
 
 function broadcastGameState(session) {
-    // O estado do jogo agora está sempre limpo, então podemos enviá-lo diretamente.
     const estadoParaCliente = session.estadoJogo;
     const message = JSON.stringify({ type: 'atualizacaoEstado', payload: estadoParaCliente });
     session.jogadores.forEach(player => {
@@ -229,7 +227,6 @@ function findGameByPlayerId(clientId) {
 }
 
 function createInitialGameState(gameId, p1, p2) {
-    // Remove a propriedade 'ws' dos objetos de jogador antes de incluí-los no estado.
     const { ws: ws1, ...player1_clean } = p1;
     const { ws: ws2, ...player2_clean } = p2;
 
