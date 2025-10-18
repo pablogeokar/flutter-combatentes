@@ -126,9 +126,7 @@ class TelaJogo extends ConsumerWidget {
                       const CircularProgressIndicator(),
                       const SizedBox(height: 16),
                       Text(
-                        uiState.conectando
-                            ? 'Conectando ao servidor...'
-                            : 'Aguardando conexão...',
+                        uiState.statusConexao.mensagem,
                         style: const TextStyle(color: Colors.white),
                       ),
                       if (uiState.erro != null &&

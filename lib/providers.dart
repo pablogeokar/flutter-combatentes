@@ -3,6 +3,18 @@ import './game_socket_service.dart';
 import './modelos_jogo.dart';
 import './services/user_preferences.dart';
 
+/// Estados possíveis da conexão
+enum StatusConexao {
+  conectando('Conectando ao servidor...'),
+  conectado('Conectado ao servidor. Aguardando oponente...'),
+  jogando('Partida em andamento'),
+  desconectado('Desconectado do servidor'),
+  erro('Erro de conexão');
+
+  const StatusConexao(this.mensagem);
+  final String mensagem;
+}
+
 /// Um estado imutável que representa tudo o que é necessário para a UI da tela do jogo.
 class TelaJogoState {
   /// O estado do jogo pode ser nulo durante a conexão inicial.
@@ -11,6 +23,7 @@ class TelaJogoState {
   final String? erro;
   final bool conectando;
   final String? nomeUsuario;
+  final StatusConexao statusConexao;
 
   const TelaJogoState({
     this.estadoJogo,
@@ -18,6 +31,7 @@ class TelaJogoState {
     this.erro,
     this.conectando = true,
     this.nomeUsuario,
+    this.statusConexao = StatusConexao.conectando,
   });
 
   TelaJogoState copyWith({
@@ -26,6 +40,7 @@ class TelaJogoState {
     String? erro,
     bool? conectando,
     String? nomeUsuario,
+    StatusConexao? statusConexao,
     bool limparSelecao = false,
     bool limparErro = false,
   }) {
@@ -37,6 +52,7 @@ class TelaJogoState {
       erro: limparErro ? null : erro ?? this.erro,
       conectando: conectando ?? this.conectando,
       nomeUsuario: nomeUsuario ?? this.nomeUsuario,
+      statusConexao: statusConexao ?? this.statusConexao,
     );
   }
 }
@@ -61,28 +77,48 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
     _init();
   }
 
-  void _init() async {
-    // Carrega o nome do usuário
-    final nomeUsuario = await UserPreferences.getUserName();
-    state = state.copyWith(nomeUsuario: nomeUsuario);
+  void _init() {
+    _initAsync();
+  }
 
-    final socketService = _ref.read(gameSocketProvider);
-    // Conecta ao servidor. Troque 'localhost' pelo IP da sua máquina se estiver testando em um dispositivo físico.
-    socketService.connect('ws://localhost:8083', nomeUsuario: nomeUsuario);
+  Future<void> _initAsync() async {
+    try {
+      // Carrega o nome do usuário
+      final nomeUsuario = await UserPreferences.getUserName();
+      state = state.copyWith(nomeUsuario: nomeUsuario);
 
-    // Ouve por atualizações de estado vindas do servidor.
-    socketService.streamDeEstados.listen((novoEstado) {
+      final socketService = _ref.read(gameSocketProvider);
+
+      // Configura os listeners antes de conectar
+      socketService.streamDeEstados.listen((novoEstado) {
+        state = state.copyWith(
+          estadoJogo: novoEstado,
+          conectando: false,
+          statusConexao: StatusConexao.jogando,
+          limparErro: true,
+        );
+      });
+
+      socketService.streamDeErros.listen((mensagemErro) {
+        state = state.copyWith(erro: mensagemErro);
+      });
+
+      socketService.streamDeStatus.listen((novoStatus) {
+        state = state.copyWith(
+          statusConexao: novoStatus,
+          conectando: novoStatus == StatusConexao.conectando,
+        );
+      });
+
+      // Conecta ao servidor
+      socketService.connect('ws://localhost:8083', nomeUsuario: nomeUsuario);
+    } catch (e) {
+      print('Erro na inicialização: $e');
       state = state.copyWith(
-        estadoJogo: novoEstado,
         conectando: false,
-        limparErro: true,
+        erro: 'Erro ao inicializar: $e',
       );
-    });
-
-    // Ouve por mensagens de erro vindas do servidor.
-    socketService.streamDeErros.listen((mensagemErro) {
-      state = state.copyWith(erro: mensagemErro);
-    });
+    }
   }
 
   /// Apenas armazena a peça selecionada localmente na UI.
@@ -128,21 +164,30 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
   }
 
   /// Tenta reconectar ao servidor
-  void reconnect() async {
-    // Reseta o estado para conectando
-    state = state.copyWith(
-      conectando: true,
-      estadoJogo: null,
-      limparErro: true,
-      limparSelecao: true,
-    );
+  void reconnect() {
+    _reconnectAsync();
+  }
 
-    // Obtém o nome do usuário atual
-    final nomeUsuario =
-        state.nomeUsuario ?? await UserPreferences.getUserName();
+  Future<void> _reconnectAsync() async {
+    try {
+      // Reseta o estado para conectando
+      state = state.copyWith(
+        conectando: true,
+        estadoJogo: null,
+        limparErro: true,
+        limparSelecao: true,
+      );
 
-    // Tenta reconectar
-    final socketService = _ref.read(gameSocketProvider);
-    socketService.reconnect('ws://localhost:8083', nomeUsuario: nomeUsuario);
+      // Obtém o nome do usuário atual
+      final nomeUsuario =
+          state.nomeUsuario ?? await UserPreferences.getUserName();
+
+      // Tenta reconectar
+      final socketService = _ref.read(gameSocketProvider);
+      socketService.reconnect('ws://localhost:8083', nomeUsuario: nomeUsuario);
+    } catch (e) {
+      print('Erro na reconexão: $e');
+      state = state.copyWith(conectando: false, erro: 'Erro ao reconectar: $e');
+    }
   }
 }
