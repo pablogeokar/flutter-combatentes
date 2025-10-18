@@ -19,25 +19,34 @@
 
 The game emphasizes strategic positioning, bluffing, and tactical combat in a classic military-themed setting.
 
-## New Features
+## Key Features
 
 ### User Management
 
-- **Player Name Input**: Users enter their name on a dedicated screen before joining games
-- **Name Persistence**: Player names are saved locally using SharedPreferences
-- **Player Identification**: Each player's name is displayed throughout the game interface
+- **Player Name Input**: Dedicated screen for entering player names
+- **Name Persistence**: Names saved locally using file-based storage
+- **User Menu**: Options to change name, clear data, or disconnect
+- **Splash Screen**: Automatic name detection and smart navigation
 
-### Enhanced UI
+### Enhanced Gameplay
 
-- **Improved Board Layout**: Fixed proportional sizing for 1024x1024px board background
-- **Responsive Piece Sizing**: Pieces scale correctly based on board cell size
-- **Game Status Display**: Real-time indication of whose turn it is
-- **Player Information Panel**: Shows both players' names, team colors, and remaining pieces
-- **Visual Feedback**: Better selection highlighting and turn indicators
+- **Piece Visibility**: Players see only their own pieces and revealed opponent pieces
+- **Local Player Identification**: Robust system to identify device owner
+- **Combat Revelation**: Strategic information revealed only after combat
+- **Turn Indicators**: Clear visual feedback for whose turn it is
 
-### Technical Improvements
+### Connection Management
 
-- **Modular Server Architecture**: Refactored server into organized, maintainable modules
-- **Type Safety**: Full TypeScript implementation with strict typing
-- **Better Error Handling**: Comprehensive error management and user feedback
-- **Responsive Design**: UI adapts to different screen sizes while maintaining board proportions
+- **Progressive Status**: "Connecting..." → "Connected. Waiting for opponent..." → "Game in progress"
+- **Automatic Reconnection**: System attempts reconnection when connection lost
+- **Manual Retry**: "Try New Connection" button when server unavailable
+- **Connection Timeout**: 10-second timeout prevents freezing
+- **Robust Error Handling**: App remains responsive even when server down
+
+### Technical Excellence
+
+- **Modular Architecture**: Server organized into specialized modules
+- **Type Safety**: Full TypeScript with strict typing
+- **Null Safety**: Robust null-safe implementations
+- **Responsive Design**: UI adapts to different screen sizes
+- **Professional UX**: Polished interface with proper feedback

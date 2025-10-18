@@ -476,7 +476,7 @@ class TelaJogo extends ConsumerWidget {
       decoration: BoxDecoration(
         color: ehVez ? Colors.green.withValues(alpha: 0.3) : Colors.transparent,
         borderRadius: BorderRadius.circular(6),
-        border: ehEuMesmo ? Border.all(color: Colors.yellow, width: 2) : null,
+        border: ehVez ? Border.all(color: Colors.yellow, width: 2) : null,
       ),
       child: Column(
         children: [
