@@ -15,12 +15,16 @@ class PecaJogoWidget extends StatelessWidget {
   /// Callback acionado quando o usuário toca na peça.
   final Function(String) onPecaTap;
 
+  /// Tamanho da célula para dimensionar a peça corretamente.
+  final double cellSize;
+
   const PecaJogoWidget({
     super.key,
     required this.peca,
     required this.estaSelecionada,
     required this.ehDoJogadorAtual,
     required this.onPecaTap,
+    required this.cellSize,
   });
 
   @override
@@ -30,43 +34,62 @@ class PecaJogoWidget extends StatelessWidget {
         ? Colors.grey[800]!
         : Colors.green[700]!;
 
+    // Calcula o tamanho da fonte baseado no tamanho da célula
+    final double fontSize = (cellSize * 0.12).clamp(8.0, 14.0);
+    final double borderRadius = cellSize * 0.1;
+    final double margin = cellSize * 0.05;
+
     // Lógica para decidir o que renderizar dentro da peça.
     Widget conteudoPeca;
     if (ehDoJogadorAtual || peca.foiRevelada) {
       // Se a peça é do jogador atual ou já foi revelada, mostra a patente.
-      conteudoPeca = Text(
-        peca.patente.nome,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 10,
+      conteudoPeca = Padding(
+        padding: EdgeInsets.all(cellSize * 0.08),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            peca.patente.nome,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: fontSize,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       );
     } else {
-      // Caso contrário, mostra o "verso" da peça, apenas com a cor da equipe.
-      conteudoPeca = Container(); // Vazio, apenas a cor de fundo será visível.
+      // Caso contrário, mostra o "verso" da peça com ícone da equipe.
+      conteudoPeca = Icon(
+        Icons.military_tech,
+        color: Colors.white.withValues(alpha: 0.8),
+        size: cellSize * 0.4,
+      );
     }
 
     return GestureDetector(
       onTap: () => onPecaTap(peca.id),
       child: Container(
-        margin: const EdgeInsets.all(2.0),
+        width: cellSize,
+        height: cellSize,
+        margin: EdgeInsets.all(margin),
         decoration: BoxDecoration(
           color: corDaEquipe,
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: BorderRadius.circular(borderRadius),
           border: estaSelecionada
-              ? Border.all(
-                  color: Colors.yellow[400]!,
-                  width: 3,
-                ) // Destaque se selecionada
-              : Border.all(color: Colors.black.withOpacity(0.5)),
+              ? Border.all(color: Colors.yellow[400]!, width: 2)
+              : Border.all(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  width: 1,
+                ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               spreadRadius: 1,
-              blurRadius: 3,
-              offset: const Offset(2, 2),
+              blurRadius: 2,
+              offset: const Offset(1, 1),
             ),
           ],
         ),

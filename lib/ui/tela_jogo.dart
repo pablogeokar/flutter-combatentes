@@ -14,6 +14,7 @@ class TelaJogo extends ConsumerWidget {
     // Assiste a mudanças no estado do jogo.
     final uiState = ref.watch(gameStateProvider);
     final estadoJogo = uiState.estadoJogo;
+    final nomeUsuario = uiState.nomeUsuario;
 
     // Escuta por mudanças de estado para mostrar dialogs ou snackbars, sem reconstruir o widget.
     ref.listen<TelaJogoState>(gameStateProvider, (previous, next) {
@@ -32,8 +33,32 @@ class TelaJogo extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Combate (Multiplayer)'),
-        backgroundColor: Colors.grey[900],
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Combatentes',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            if (nomeUsuario != null)
+              Text(
+                'Jogador: $nomeUsuario',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF2E7D32),
+        foregroundColor: Colors.white,
+        actions: [
+          if (estadoJogo != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Center(child: _buildGameStatus(estadoJogo, nomeUsuario)),
+            ),
+        ],
       ),
       body: Stack(
         children: [
@@ -66,22 +91,139 @@ class TelaJogo extends ConsumerWidget {
             )
           else
             // Mostra o tabuleiro quando o estado estiver disponível
-            Center(
-              child: AspectRatio(
-                aspectRatio: 1.0,
-                child: TabuleiroWidget(
-                  estadoJogo: estadoJogo,
-                  idPecaSelecionada: uiState.idPecaSelecionada,
-                  // Ao tocar numa peça, chama o método do notifier.
-                  onPecaTap: (idPeca) => ref
-                      .read(gameStateProvider.notifier)
-                      .selecionarPeca(idPeca),
-                  // Ao tocar numa posição, chama o método do notifier.
-                  onPosicaoTap: (posicao) =>
-                      ref.read(gameStateProvider.notifier).moverPeca(posicao),
+            Column(
+              children: [
+                // Informações da partida
+                _buildGameInfo(estadoJogo, nomeUsuario),
+                // Tabuleiro
+                Expanded(
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: 1.0,
+                      child: TabuleiroWidget(
+                        estadoJogo: estadoJogo,
+                        idPecaSelecionada: uiState.idPecaSelecionada,
+                        onPecaTap: (idPeca) => ref
+                            .read(gameStateProvider.notifier)
+                            .selecionarPeca(idPeca),
+                        onPosicaoTap: (posicao) => ref
+                            .read(gameStateProvider.notifier)
+                            .moverPeca(posicao),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Constrói o widget de status do jogo no AppBar
+  Widget _buildGameStatus(EstadoJogo estado, String? nomeUsuario) {
+    final jogadorDaVez = estado.jogadores.firstWhere(
+      (j) => j.id == estado.idJogadorDaVez,
+    );
+
+    final bool ehMinhVez =
+        nomeUsuario != null && jogadorDaVez.nome.contains(nomeUsuario);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: ehMinhVez ? Colors.green : Colors.orange,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        ehMinhVez ? 'Sua vez!' : 'Vez do oponente',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  /// Constrói as informações da partida
+  Widget _buildGameInfo(EstadoJogo estado, String? nomeUsuario) {
+    return Container(
+      margin: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildPlayerInfo(estado.jogadores[0], estado, nomeUsuario),
+          const Text(
+            'VS',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          _buildPlayerInfo(estado.jogadores[1], estado, nomeUsuario),
+        ],
+      ),
+    );
+  }
+
+  /// Constrói as informações de um jogador
+  Widget _buildPlayerInfo(
+    Jogador jogador,
+    EstadoJogo estado,
+    String? nomeUsuario,
+  ) {
+    final bool ehEuMesmo =
+        nomeUsuario != null && jogador.nome.contains(nomeUsuario);
+    final bool ehVez = jogador.id == estado.idJogadorDaVez;
+    final int pecasRestantes = estado.pecas
+        .where((p) => p.equipe == jogador.equipe)
+        .length;
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: ehVez ? Colors.green.withValues(alpha: 0.3) : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        border: ehEuMesmo ? Border.all(color: Colors.yellow, width: 2) : null,
+      ),
+      child: Column(
+        children: [
+          Text(
+            jogador.nome,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: ehEuMesmo ? FontWeight.bold : FontWeight.normal,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: jogador.equipe == Equipe.preta
+                      ? Colors.grey[800]
+                      : Colors.green[700],
+                  shape: BoxShape.circle,
                 ),
               ),
-            ),
+              const SizedBox(width: 4),
+              Text(
+                '$pecasRestantes peças',
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
         ],
       ),
     );

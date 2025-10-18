@@ -1,4 +1,4 @@
-import 'package:combatentes/ui/tela_jogo.dart';
+import 'package:combatentes/ui/tela_nome_usuario.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,12 +13,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Combate',
+      title: 'Combatentes',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.green,
         visualDensity: VisualDensity.adaptivePlatformDensity,
+        useMaterial3: true,
       ),
-      home: const TelaJogo(),
+      home: const TelaNomeUsuario(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }

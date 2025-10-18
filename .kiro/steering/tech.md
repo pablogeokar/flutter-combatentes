@@ -42,8 +42,14 @@ flutter build windows
 # Install dependencies
 pnpm install
 
-# Run development server
+# Run development server (with hot reload)
 pnpm run dev
+
+# Build for production
+pnpm run build
+
+# Run production build
+pnpm run start
 
 # The server runs on port 8080 by default
 ```

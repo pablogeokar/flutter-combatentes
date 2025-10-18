@@ -32,53 +32,99 @@ class TabuleiroWidget extends StatelessWidget {
         '${peca.posicao.linha}-${peca.posicao.coluna}': peca,
     };
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(8.0),
-      physics:
-          const NeverScrollableScrollPhysics(), // O tabuleiro em si não deve rolar.
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 10, // O tabuleiro de Combate tem 10 colunas.
-      ),
-      itemCount: 100, // E 100 células (10x10).
-      itemBuilder: (context, index) {
-        final int linha = index ~/ 10;
-        final int coluna = index % 10;
-        final PosicaoTabuleiro posicaoAtual = PosicaoTabuleiro(
-          linha: linha,
-          coluna: coluna,
-        );
-        final String chavePosicao = '$linha-$coluna';
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Calcula o tamanho de cada célula baseado no menor lado disponível
+        final double availableSize =
+            constraints.maxWidth < constraints.maxHeight
+            ? constraints.maxWidth
+            : constraints.maxHeight;
+        final double cellSize =
+            (availableSize - 16) / 10; // 16 para padding total
 
-        final PecaJogo? peca = pecasPorPosicao[chavePosicao];
-
-        if (peca != null) {
-          // Se existe uma peça nesta posição, renderiza o PecaJogoWidget.
-          final bool ehDoJogadorAtual =
-              estadoJogo.jogadores
-                  .firstWhere((j) => j.id == estadoJogo.idJogadorDaVez)
-                  .equipe ==
-              peca.equipe;
-
-          return PecaJogoWidget(
-            peca: peca,
-            estaSelecionada: idPecaSelecionada == peca.id,
-            ehDoJogadorAtual: ehDoJogadorAtual,
-            onPecaTap: onPecaTap,
-          );
-        } else {
-          // Se não há peça, renderiza uma célula vazia que pode ser tocada.
-          return GestureDetector(
-            onTap: () => onPosicaoTap(posicaoAtual),
-            child: Container(
-              margin: const EdgeInsets.all(2.0),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8.0),
+        return Container(
+          width: availableSize,
+          height: availableSize,
+          padding: const EdgeInsets.all(8.0),
+          child: Stack(
+            children: [
+              // Imagem de fundo do tabuleiro
+              Positioned.fill(
+                child: Image.asset(
+                  'assets/images/board_background.png',
+                  fit: BoxFit.contain,
+                ),
               ),
-            ),
-          );
-        }
+              // Grid das células
+              GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 10,
+                  mainAxisSpacing: 0,
+                  crossAxisSpacing: 0,
+                  childAspectRatio: 1.0,
+                ),
+                itemCount: 100,
+                itemBuilder: (context, index) {
+                  final int linha = index ~/ 10;
+                  final int coluna = index % 10;
+                  final PosicaoTabuleiro posicaoAtual = PosicaoTabuleiro(
+                    linha: linha,
+                    coluna: coluna,
+                  );
+                  final String chavePosicao = '$linha-$coluna';
+                  final PecaJogo? peca = pecasPorPosicao[chavePosicao];
+
+                  return Container(
+                    width: cellSize,
+                    height: cellSize,
+                    child: peca != null
+                        ? _buildPecaCell(peca, cellSize)
+                        : _buildEmptyCell(posicaoAtual, cellSize),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
       },
+    );
+  }
+
+  Widget _buildPecaCell(PecaJogo peca, double cellSize) {
+    final bool ehDoJogadorAtual =
+        estadoJogo.jogadores
+            .firstWhere((j) => j.id == estadoJogo.idJogadorDaVez)
+            .equipe ==
+        peca.equipe;
+
+    return PecaJogoWidget(
+      peca: peca,
+      estaSelecionada: idPecaSelecionada == peca.id,
+      ehDoJogadorAtual: ehDoJogadorAtual,
+      onPecaTap: onPecaTap,
+      cellSize: cellSize,
+    );
+  }
+
+  Widget _buildEmptyCell(PosicaoTabuleiro posicao, double cellSize) {
+    return GestureDetector(
+      onTap: () => onPosicaoTap(posicao),
+      child: Container(
+        width: cellSize,
+        height: cellSize,
+        margin: const EdgeInsets.all(1.0),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          border: idPecaSelecionada != null
+              ? Border.all(
+                  color: Colors.yellow.withValues(alpha: 0.3),
+                  width: 1,
+                )
+              : null,
+          borderRadius: BorderRadius.circular(4.0),
+        ),
+      ),
     );
   }
 }

@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -14,13 +13,26 @@ class GameSocketService {
 
   /// Stream que emite o [EstadoJogo] mais recente recebido do servidor.
   Stream<EstadoJogo> get streamDeEstados => _estadoController.stream;
+
   /// Stream que emite mensagens de erro recebidas do servidor.
   Stream<String> get streamDeErros => _erroController.stream;
 
   /// Conecta-se ao servidor WebSocket e começa a ouvir por mensagens.
-  void connect(String url) {
+  void connect(String url, {String? nomeUsuario}) {
     try {
       _channel = WebSocketChannel.connect(Uri.parse(url));
+
+      // Envia o nome do usuário assim que conecta
+      if (nomeUsuario != null) {
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _channel.sink.add(
+            jsonEncode({
+              'type': 'definirNome',
+              'payload': {'nome': nomeUsuario},
+            }),
+          );
+        });
+      }
 
       _channel.stream.listen(
         (message) {
@@ -33,7 +45,9 @@ class GameSocketService {
               final estado = EstadoJogo.fromJson(data['payload']);
               _estadoController.add(estado);
             } else if (type == 'erroMovimento') {
-              final erro = data['payload']?['mensagem'] ?? 'Erro desconhecido do servidor.';
+              final erro =
+                  data['payload']?['mensagem'] ??
+                  'Erro desconhecido do servidor.';
               _erroController.add(erro);
             } else if (type == 'mensagemServidor') {
               print('Mensagem do Servidor: ${data['payload']}');
@@ -56,7 +70,7 @@ class GameSocketService {
       );
     } catch (e) {
       print('Could not connect to WebSocket: $e');
-       _erroController.add('Não foi possível conectar ao servidor.');
+      _erroController.add('Não foi possível conectar ao servidor.');
     }
   }
 
@@ -64,10 +78,7 @@ class GameSocketService {
   void enviarMovimento(String idPeca, PosicaoTabuleiro novaPosicao) {
     final message = jsonEncode({
       'type': 'moverPeca',
-      'payload': {
-        'idPeca': idPeca,
-        'novaPosicao': novaPosicao.toJson(),
-      },
+      'payload': {'idPeca': idPeca, 'novaPosicao': novaPosicao.toJson()},
     });
     _channel.sink.add(message);
   }
