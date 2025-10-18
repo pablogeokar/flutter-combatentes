@@ -50,8 +50,8 @@ class PecaJogoWidget extends StatelessWidget {
 
     // Lógica para decidir o que renderizar dentro da peça.
     Widget conteudoPeca;
-    if (ehDoJogadorAtual || peca.foiRevelada) {
-      // Se a peça é do jogador atual ou já foi revelada, mostra a patente.
+    if (ehDoJogadorAtual) {
+      // Se a peça é do jogador atual, sempre mostra a patente.
       conteudoPeca = Padding(
         padding: EdgeInsets.all(cellSize * 0.08),
         child: FittedBox(
