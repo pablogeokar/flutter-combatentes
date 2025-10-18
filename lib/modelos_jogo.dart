@@ -34,6 +34,34 @@ enum Patente {
   final String nome;
 
   const Patente({required this.forca, required this.nome});
+
+  /// Retorna o caminho da imagem correspondente à patente.
+  String get imagePath {
+    switch (this) {
+      case Patente.prisioneiro:
+        return 'assets/images/pecas/prisioneiro.png';
+      case Patente.agenteSecreto:
+        return 'assets/images/pecas/agenteSecreto.png';
+      case Patente.soldado:
+        return 'assets/images/pecas/soldado.png';
+      case Patente.cabo:
+        return 'assets/images/pecas/cabo.png';
+      case Patente.sargento:
+        return 'assets/images/pecas/sargento.png';
+      case Patente.tenente:
+        return 'assets/images/pecas/tenente.png';
+      case Patente.capitao:
+        return 'assets/images/pecas/capitao.png';
+      case Patente.major:
+        return 'assets/images/pecas/major.png';
+      case Patente.coronel:
+        return 'assets/images/pecas/coronel.png';
+      case Patente.general:
+        return 'assets/images/pecas/general.png';
+      case Patente.minaTerrestre:
+        return 'assets/images/pecas/minaTerrestre.png';
+    }
+  }
 }
 
 /// Representa uma coordenada (linha e coluna) no tabuleiro.

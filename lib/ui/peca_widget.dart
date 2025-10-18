@@ -51,30 +51,121 @@ class PecaJogoWidget extends StatelessWidget {
     // Lógica para decidir o que renderizar dentro da peça.
     Widget conteudoPeca;
     if (ehDoJogadorAtual) {
-      // Se a peça é do jogador atual, sempre mostra a patente.
+      // Se a peça é do jogador atual, mostra a imagem da patente.
       conteudoPeca = Padding(
-        padding: EdgeInsets.all(cellSize * 0.08),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            peca.patente.nome,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: fontSize,
+        padding: EdgeInsets.all(cellSize * 0.1),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              flex: 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      spreadRadius: 1,
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    Colors.white.withValues(alpha: 0.9),
+                    BlendMode.modulate,
+                  ),
+                  child: Image.asset(
+                    peca.patente.imagePath,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      print(
+                        '❌ ERRO ao carregar imagem: ${peca.patente.imagePath}',
+                      );
+                      print('❌ Erro detalhado: $error');
+                      // Fallback para texto se a imagem falhar
+                      return Container(
+                        padding: EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            peca.patente.nome,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 8,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
+            Expanded(
+              flex: 1,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  peca.patente.nome,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: fontSize * 0.7,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ],
         ),
       );
     } else {
-      // Caso contrário, mostra o "verso" da peça com ícone da equipe.
-      conteudoPeca = Icon(
-        Icons.military_tech,
-        color: Colors.white.withValues(alpha: 0.8),
-        size: cellSize * 0.4,
+      // Caso contrário, mostra o "verso" da peça com design militar.
+      conteudoPeca = Container(
+        padding: EdgeInsets.all(cellSize * 0.15),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              flex: 2,
+              child: Icon(
+                Icons.military_tech,
+                color: Colors.white.withValues(alpha: 0.9),
+                size: cellSize * 0.3,
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Center(
+                  child: Text(
+                    '?',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: cellSize * 0.15,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       );
     }
 
@@ -97,25 +188,64 @@ class PecaJogoWidget extends StatelessWidget {
           height: cellSize,
           margin: EdgeInsets.all(margin),
           decoration: BoxDecoration(
-            color: ehMovimentoValido
-                ? Colors.red.withValues(
-                    alpha: 0.8,
-                  ) // Peça inimiga que pode ser atacada
-                : habilitarClique
-                ? corDaEquipe
-                : corDaEquipe.withValues(
-                    alpha: 0.6,
-                  ), // Peça desabilitada mais transparente
+            gradient: ehMovimentoValido
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.red.withValues(alpha: 0.9),
+                      Colors.red.withValues(alpha: 0.7),
+                    ],
+                  )
+                : estaSelecionada
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      corDaEquipe.withValues(alpha: 1.0),
+                      corDaEquipe.withValues(alpha: 0.8),
+                    ],
+                  )
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      habilitarClique
+                          ? corDaEquipe
+                          : corDaEquipe.withValues(alpha: 0.6),
+                      habilitarClique
+                          ? corDaEquipe.withValues(alpha: 0.8)
+                          : corDaEquipe.withValues(alpha: 0.4),
+                    ],
+                  ),
             borderRadius: BorderRadius.circular(borderRadius),
             border: estaSelecionada
-                ? Border.all(color: Colors.yellow[400]!, width: 2)
+                ? Border.all(color: Colors.yellow[400]!, width: 3)
                 : ehMovimentoValido
-                ? Border.all(color: Colors.red, width: 2)
+                ? Border.all(color: Colors.red[300]!, width: 2)
                 : Border.all(
-                    color: Colors.black.withValues(alpha: 0.5),
+                    color: Colors.black.withValues(alpha: 0.3),
                     width: 1,
                   ),
-            boxShadow: habilitarClique
+            boxShadow: estaSelecionada
+                ? [
+                    BoxShadow(
+                      color: Colors.yellow.withValues(alpha: 0.5),
+                      spreadRadius: 2,
+                      blurRadius: 4,
+                      offset: const Offset(0, 0),
+                    ),
+                  ]
+                : ehMovimentoValido
+                ? [
+                    BoxShadow(
+                      color: Colors.red.withValues(alpha: 0.4),
+                      spreadRadius: 1,
+                      blurRadius: 3,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : habilitarClique
                 ? [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.3),
@@ -131,7 +261,7 @@ class PecaJogoWidget extends StatelessWidget {
                       blurRadius: 1,
                       offset: const Offset(0, 0),
                     ),
-                  ], // Sombra mais sutil para peças desabilitadas
+                  ],
           ),
           child: Stack(
             children: [

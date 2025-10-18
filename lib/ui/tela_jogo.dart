@@ -279,33 +279,59 @@ class TelaJogo extends ConsumerWidget {
             Text(titulo, style: TextStyle(color: corTitulo)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Mostra as peças do combate
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildCombatPieceInfo(
-                  combate.atacante,
-                  "Atacante",
-                  ehMeuAtacante,
-                ),
-                Icon(Icons.flash_on, color: Colors.orange, size: 32),
-                _buildCombatPieceInfo(
-                  combate.defensor,
-                  "Defensor",
-                  ehMeuDefensor,
-                ),
-              ],
+        content: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.grey[100]!, Colors.grey[50]!],
             ),
-            SizedBox(height: 16),
-            Text(
-              mensagem,
-              style: TextStyle(fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Mostra as peças do combate
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildCombatPieceInfo(
+                    combate.atacante,
+                    "Atacante",
+                    ehMeuAtacante,
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.flash_on, color: Colors.orange, size: 32),
+                  ),
+                  _buildCombatPieceInfo(
+                    combate.defensor,
+                    "Defensor",
+                    ehMeuDefensor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Text(
+                  mensagem,
+                  style: const TextStyle(fontSize: 14, height: 1.4),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           ElevatedButton(
@@ -330,31 +356,71 @@ class TelaJogo extends ConsumerWidget {
     return Column(
       children: [
         Container(
-          width: 60,
-          height: 60,
+          width: 80,
+          height: 80,
           decoration: BoxDecoration(
             color: peca.equipe == Equipe.preta
                 ? Colors.grey[800]
                 : Colors.green[700],
-            borderRadius: BorderRadius.circular(8),
-            border: ehMinha ? Border.all(color: Colors.yellow, width: 2) : null,
-          ),
-          child: Center(
-            child: Text(
-              peca.patente.nome,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 10,
+            borderRadius: BorderRadius.circular(12),
+            border: ehMinha ? Border.all(color: Colors.yellow, width: 3) : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                spreadRadius: 1,
+                blurRadius: 3,
+                offset: const Offset(0, 2),
               ),
-              textAlign: TextAlign.center,
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      Colors.white.withValues(alpha: 0.9),
+                      BlendMode.modulate,
+                    ),
+                    child: Image.asset(
+                      peca.patente.imagePath,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        print(
+                          'Erro ao carregar imagem no diálogo: ${peca.patente.imagePath}',
+                        );
+                        return Icon(Icons.error, color: Colors.red, size: 30);
+                      },
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      peca.patente.nome,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 8,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 6),
         Text(
           papel,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
         Text(
           "Força: ${peca.patente.forca}",
