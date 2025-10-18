@@ -20,7 +20,7 @@ export class GameSessionManager {
     if (!this.pendingClient) {
       this.pendingClient = {
         id: clientId,
-        nome: `Jogador 1`,
+        nome: `Aguardando nome...`, // Nome será atualizado quando receber mensagem definirNome
         equipe: Equipe.Preta,
         ws,
       };
@@ -37,7 +37,7 @@ export class GameSessionManager {
     const player1 = this.pendingClient!;
     const player2 = {
       id: clientId,
-      nome: `Jogador 2`,
+      nome: `Aguardando nome...`, // Nome será atualizado quando receber mensagem definirNome
       equipe: Equipe.Verde,
       ws,
     };
@@ -65,6 +65,26 @@ export class GameSessionManager {
 
   private setupWebSocketHandlers(ws: WebSocket, clientId: string): void {
     ws.on("message", (message: string) => {
+      // Primeiro verifica se é uma mensagem de definir nome para jogador pendente
+      try {
+        const data = JSON.parse(message);
+        if (
+          data.type === "definirNome" &&
+          this.pendingClient &&
+          this.pendingClient.id === clientId
+        ) {
+          const { nome } = data.payload;
+          if (nome && typeof nome === "string") {
+            console.log(
+              `Atualizando nome do jogador pendente: ${this.pendingClient.nome} -> ${nome}`
+            );
+            this.pendingClient.nome = nome;
+          }
+        }
+      } catch (e) {
+        // Ignora erros de parsing, deixa o handler principal processar
+      }
+
       this.messageHandler.handleMessage(message, clientId, ws);
     });
 

@@ -39,10 +39,18 @@ export class WebSocketMessageHandler {
   private handleSetPlayerName(payload: any, clientId: string): void {
     const { nome } = payload;
     if (nome && typeof nome === "string") {
-      // Encontra o jogador e atualiza seu nome
+      console.log(
+        `Recebida solicitação para definir nome: ${nome} para cliente ${clientId}`
+      );
+
+      // Encontra o jogador e atualiza seu nome em jogos ativos
+      let nomeAtualizado = false;
       for (const session of this.activeGames.values()) {
         const jogador = session.jogadores.find((j) => j.id === clientId);
         if (jogador) {
+          console.log(
+            `Atualizando nome do jogador em sessão ativa: ${jogador.nome} -> ${nome}`
+          );
           // Atualiza o nome no jogador da sessão
           jogador.nome = nome;
           // Atualiza o nome no estado do jogo
@@ -53,9 +61,17 @@ export class WebSocketMessageHandler {
             jogadorEstado.nome = nome;
             this.broadcastGameState(session);
           }
+          nomeAtualizado = true;
           break;
         }
       }
+
+      if (!nomeAtualizado) {
+        console.log(
+          `Jogador ${clientId} não encontrado em sessões ativas. Pode estar aguardando partida.`
+        );
+      }
+
       console.log(`Nome do jogador ${clientId} definido como: ${nome}`);
     }
   }
