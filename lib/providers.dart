@@ -131,15 +131,23 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
   /// Apenas armazena a peça selecionada localmente na UI e calcula movimentos válidos.
   void selecionarPeca(String idPeca) {
-    if (state.estadoJogo == null) return;
+    if (state.estadoJogo == null || state.nomeUsuario == null) return;
 
     final peca = state.estadoJogo!.pecas.firstWhere((p) => p.id == idPeca);
     final jogadorDaVez = state.estadoJogo!.jogadores.firstWhere(
       (j) => j.id == state.estadoJogo!.idJogadorDaVez,
     );
 
-    // A lógica de quem pode selecionar o quê permanece no cliente para feedback visual rápido.
-    if (peca.equipe == jogadorDaVez.equipe) {
+    // Verifica se é a vez do jogador local
+    final bool ehVezDoJogadorLocal = _isVezDoJogadorLocal(jogadorDaVez);
+
+    // Verifica se a peça pertence ao jogador local
+    final bool ehPecaDoJogadorLocal = _isPecaDoJogadorLocal(peca);
+
+    // Só permite seleção se for a vez do jogador local E a peça for dele
+    if (ehVezDoJogadorLocal &&
+        ehPecaDoJogadorLocal &&
+        peca.equipe == jogadorDaVez.equipe) {
       // Calcula os movimentos válidos para a peça selecionada
       final movimentosValidos = _gameController.calcularMovimentosValidos(
         estadoAtual: state.estadoJogo!,
@@ -152,6 +160,60 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
         limparErro: true,
       );
     }
+  }
+
+  /// Verifica se é a vez do jogador local
+  bool _isVezDoJogadorLocal(Jogador jogadorDaVez) {
+    if (state.nomeUsuario == null) return false;
+
+    final nomeJogadorDaVez = jogadorDaVez.nome.trim().toLowerCase();
+    final nomeLocal = state.nomeUsuario!.trim().toLowerCase();
+
+    // Busca exata ou parcial
+    return nomeJogadorDaVez == nomeLocal ||
+        nomeJogadorDaVez.contains(nomeLocal) ||
+        nomeLocal.contains(nomeJogadorDaVez);
+  }
+
+  /// Verifica se a peça pertence ao jogador local
+  bool _isPecaDoJogadorLocal(PecaJogo peca) {
+    if (state.estadoJogo == null || state.nomeUsuario == null) return false;
+
+    // Busca o jogador local pelo nome
+    final jogadorLocal = state.estadoJogo!.jogadores.where((jogador) {
+      final nomeJogador = jogador.nome.trim().toLowerCase();
+      final nomeLocal = state.nomeUsuario!.trim().toLowerCase();
+
+      // Busca exata
+      if (nomeJogador == nomeLocal) return true;
+
+      // Busca parcial (contém)
+      if (nomeJogador.contains(nomeLocal) || nomeLocal.contains(nomeJogador)) {
+        return true;
+      }
+
+      return false;
+    }).toList();
+
+    if (jogadorLocal.isNotEmpty) {
+      return peca.equipe == jogadorLocal.first.equipe;
+    }
+
+    // Fallback: Se não encontrou por nome, tenta heurística
+    final jogadoresComNomeReal = state.estadoJogo!.jogadores
+        .where(
+          (j) =>
+              !j.nome.contains("Aguardando") &&
+              !j.nome.contains("Jogador") &&
+              j.nome.trim().length > 2,
+        )
+        .toList();
+
+    if (jogadoresComNomeReal.length == 1) {
+      return peca.equipe == jogadoresComNomeReal.first.equipe;
+    }
+
+    return false;
   }
 
   /// Envia a intenção de movimento para o servidor.

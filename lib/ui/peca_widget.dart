@@ -78,18 +78,20 @@ class PecaJogoWidget extends StatelessWidget {
       );
     }
 
-    // Determina o cursor baseado nas condições
+    // Determina se a peça pode ser clicada
     final bool podeSerClicada = ehDoJogadorAtual && ehVezDoJogadorLocal;
-    final SystemMouseCursor cursor = podeSerClicada
-        ? SystemMouseCursors.click
-        : ehMovimentoValido
+    final bool podeSerAtacada = ehMovimentoValido && !ehDoJogadorAtual;
+    final bool habilitarClique = podeSerClicada || podeSerAtacada;
+
+    // Determina o cursor baseado nas condições
+    final SystemMouseCursor cursor = habilitarClique
         ? SystemMouseCursors.click
         : SystemMouseCursors.basic;
 
     return MouseRegion(
       cursor: cursor,
       child: GestureDetector(
-        onTap: () => onPecaTap(peca.id),
+        onTap: habilitarClique ? () => onPecaTap(peca.id) : null,
         child: Container(
           width: cellSize,
           height: cellSize,
@@ -99,7 +101,11 @@ class PecaJogoWidget extends StatelessWidget {
                 ? Colors.red.withValues(
                     alpha: 0.8,
                   ) // Peça inimiga que pode ser atacada
-                : corDaEquipe,
+                : habilitarClique
+                ? corDaEquipe
+                : corDaEquipe.withValues(
+                    alpha: 0.6,
+                  ), // Peça desabilitada mais transparente
             borderRadius: BorderRadius.circular(borderRadius),
             border: estaSelecionada
                 ? Border.all(color: Colors.yellow[400]!, width: 2)
@@ -109,18 +115,34 @@ class PecaJogoWidget extends StatelessWidget {
                     color: Colors.black.withValues(alpha: 0.5),
                     width: 1,
                   ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                spreadRadius: 1,
-                blurRadius: 2,
-                offset: const Offset(1, 1),
-              ),
-            ],
+            boxShadow: habilitarClique
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      spreadRadius: 1,
+                      blurRadius: 2,
+                      offset: const Offset(1, 1),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      spreadRadius: 0,
+                      blurRadius: 1,
+                      offset: const Offset(0, 0),
+                    ),
+                  ], // Sombra mais sutil para peças desabilitadas
           ),
           child: Stack(
             children: [
-              Center(child: conteudoPeca),
+              Center(
+                child: Opacity(
+                  opacity: habilitarClique
+                      ? 1.0
+                      : 0.5, // Reduz opacidade quando desabilitada
+                  child: conteudoPeca,
+                ),
+              ),
               if (ehMovimentoValido)
                 Positioned(
                   top: 2,
