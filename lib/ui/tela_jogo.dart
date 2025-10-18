@@ -18,46 +18,65 @@ class TelaJogo extends ConsumerWidget {
     // Escuta por mudanças de estado para mostrar dialogs ou snackbars, sem reconstruir o widget.
     ref.listen<TelaJogoState>(gameStateProvider, (previous, next) {
       // Mostra uma mensagem de erro se uma ocorrer.
-      if (next.erro != null) {
+      if (next.erro != null && (previous?.erro != next.erro)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(next.erro!), backgroundColor: Colors.red),
         );
       }
       // Mostra o diálogo de fim de jogo quando a partida termina.
-      if (next.estadoJogo.jogoTerminou &&
-          !(previous?.estadoJogo.jogoTerminou ?? false)) {
-        _mostrarDialogoFimDeJogo(context, next.estadoJogo, ref);
+      if (next.estadoJogo?.jogoTerminou == true && previous?.estadoJogo?.jogoTerminou == false) {
+        _mostrarDialogoFimDeJogo(context, next.estadoJogo!, ref);
       }
     });
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Combate (Riverpod)'),
+        title: const Text('Combate (Multiplayer)'),
         backgroundColor: Colors.grey[900],
       ),
       body: Stack(
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/board_background.jpg',
+              'assets/images/board_background.png',
               fit: BoxFit.cover,
             ),
           ),
-          Center(
-            child: AspectRatio(
-              aspectRatio: 1.0,
-              child: TabuleiroWidget(
-                estadoJogo: estadoJogo,
-                idPecaSelecionada: uiState.idPecaSelecionada,
-                // Ao tocar numa peça, chama o método do notifier.
-                onPecaTap: (idPeca) =>
-                    ref.read(gameStateProvider.notifier).selecionarPeca(idPeca),
-                // Ao tocar numa posição, chama o método do notifier.
-                onPosicaoTap: (posicao) =>
-                    ref.read(gameStateProvider.notifier).moverPeca(posicao),
+          // Mostra um indicador de carregamento enquanto conecta ou o estado é nulo
+          if (estadoJogo == null) 
+            const Center(
+              child: Card(
+                color: Colors.black54,
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Conectando ao servidor...', style: TextStyle(color: Colors.white)),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            // Mostra o tabuleiro quando o estado estiver disponível
+            Center(
+              child: AspectRatio(
+                aspectRatio: 1.0,
+                child: TabuleiroWidget(
+                  estadoJogo: estadoJogo,
+                  idPecaSelecionada: uiState.idPecaSelecionada,
+                  // Ao tocar numa peça, chama o método do notifier.
+                  onPecaTap: (idPeca) =>
+                      ref.read(gameStateProvider.notifier).selecionarPeca(idPeca),
+                  // Ao tocar numa posição, chama o método do notifier.
+                  onPosicaoTap: (posicao) =>
+                      ref.read(gameStateProvider.notifier).moverPeca(posicao),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -84,10 +103,8 @@ class TelaJogo extends ConsumerWidget {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              // Reinicia o jogo através do notifier.
-              ref.read(gameStateProvider.notifier).reiniciarJogo();
             },
-            child: const Text("Jogar Novamente"),
+            child: const Text("OK"),
           ),
         ],
       ),
