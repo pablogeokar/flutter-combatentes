@@ -13,6 +13,7 @@
 migrate_working_dir/
 server/node_modules
 server/dist
+combatentes_user.json
 
 # IntelliJ related
 *.iml

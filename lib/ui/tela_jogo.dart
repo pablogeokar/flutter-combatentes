@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../modelos_jogo.dart';
 import '../providers.dart';
+import '../services/user_preferences.dart';
 import './tabuleiro_widget.dart';
+import './tela_nome_usuario.dart';
 
 /// A tela principal do jogo, agora como um ConsumerWidget que reage às mudanças de estado do Riverpod.
 class TelaJogo extends ConsumerWidget {
@@ -53,6 +55,43 @@ class TelaJogo extends ConsumerWidget {
         backgroundColor: const Color(0xFF2E7D32),
         foregroundColor: Colors.white,
         actions: [
+          // Menu de opções do usuário
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.person),
+            onSelected: (value) => _handleMenuAction(context, value, ref),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'change_name',
+                child: Row(
+                  children: [
+                    const Icon(Icons.edit, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Alterar Nome'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'clear_name',
+                child: Row(
+                  children: [
+                    const Icon(Icons.delete, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Limpar Nome'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'disconnect',
+                child: Row(
+                  children: [
+                    const Icon(Icons.exit_to_app, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Desconectar'),
+                  ],
+                ),
+              ),
+            ],
+          ),
           if (estadoJogo != null)
             Padding(
               padding: const EdgeInsets.only(right: 16.0),
@@ -115,6 +154,140 @@ class TelaJogo extends ConsumerWidget {
                 ),
               ],
             ),
+        ],
+      ),
+    );
+  }
+
+  /// Lida com as ações do menu do usuário
+  void _handleMenuAction(BuildContext context, String action, WidgetRef ref) {
+    switch (action) {
+      case 'change_name':
+        _showChangeNameDialog(context, ref);
+        break;
+      case 'clear_name':
+        _showClearNameDialog(context, ref);
+        break;
+      case 'disconnect':
+        _showDisconnectDialog(context, ref);
+        break;
+    }
+  }
+
+  /// Mostra diálogo para alterar nome
+  void _showChangeNameDialog(BuildContext context, WidgetRef ref) {
+    final TextEditingController controller = TextEditingController();
+    final nomeAtual = ref.read(gameStateProvider).nomeUsuario;
+    if (nomeAtual != null) {
+      controller.text = nomeAtual;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Alterar Nome'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Novo nome',
+            hintText: 'Digite seu novo nome',
+          ),
+          maxLength: 20,
+          textCapitalization: TextCapitalization.words,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final novoNome = controller.text.trim();
+              if (novoNome.isNotEmpty && novoNome.length >= 2) {
+                await UserPreferences.saveUserName(novoNome);
+                ref.read(gameStateProvider.notifier).updateUserName(novoNome);
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Nome alterado para: $novoNome'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Mostra diálogo para limpar nome
+  void _showClearNameDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Limpar Nome'),
+        content: const Text(
+          'Tem certeza que deseja limpar seu nome? '
+          'Você precisará digitá-lo novamente na próxima vez.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await UserPreferences.clearUserName();
+              Navigator.of(context).pop();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const TelaNomeUsuario(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Limpar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Mostra diálogo para desconectar
+  void _showDisconnectDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Desconectar'),
+        content: const Text(
+          'Tem certeza que deseja sair do jogo? '
+          'Você será desconectado da partida atual.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const TelaNomeUsuario(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Desconectar'),
+          ),
         ],
       ),
     );

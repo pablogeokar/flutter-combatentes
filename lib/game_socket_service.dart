@@ -83,6 +83,15 @@ class GameSocketService {
     _channel.sink.add(message);
   }
 
+  /// Envia o nome do usuário para o servidor
+  void enviarNome(String nome) {
+    final message = jsonEncode({
+      'type': 'definirNome',
+      'payload': {'nome': nome},
+    });
+    _channel.sink.add(message);
+  }
+
   /// Fecha a conexão com o WebSocket.
   void dispose() {
     _channel.sink.close();

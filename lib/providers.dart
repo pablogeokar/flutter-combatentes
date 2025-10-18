@@ -68,7 +68,7 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
     final socketService = _ref.read(gameSocketProvider);
     // Conecta ao servidor. Troque 'localhost' pelo IP da sua máquina se estiver testando em um dispositivo físico.
-    socketService.connect('ws://localhost:8080', nomeUsuario: nomeUsuario);
+    socketService.connect('ws://localhost:8083', nomeUsuario: nomeUsuario);
 
     // Ouve por atualizações de estado vindas do servidor.
     socketService.streamDeEstados.listen((novoEstado) {
@@ -111,5 +111,14 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
     // A UI é limpa imediatamente para dar feedback, mas o estado autoritativo virá do servidor.
     state = state.copyWith(limparSelecao: true);
+  }
+
+  /// Atualiza o nome do usuário no estado
+  void updateUserName(String novoNome) {
+    state = state.copyWith(nomeUsuario: novoNome);
+
+    // Envia o novo nome para o servidor
+    final socketService = _ref.read(gameSocketProvider);
+    socketService.enviarNome(novoNome);
   }
 }
