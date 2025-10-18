@@ -10,6 +10,9 @@ class TabuleiroWidget extends StatelessWidget {
   /// O ID da peça que está atualmente selecionada pelo jogador.
   final String? idPecaSelecionada;
 
+  /// Lista de posições válidas para movimento da peça selecionada.
+  final List<PosicaoTabuleiro> movimentosValidos;
+
   /// Callback para quando uma peça é tocada.
   final Function(String) onPecaTap;
 
@@ -23,6 +26,7 @@ class TabuleiroWidget extends StatelessWidget {
     super.key,
     required this.estadoJogo,
     required this.idPecaSelecionada,
+    required this.movimentosValidos,
     required this.onPecaTap,
     required this.onPosicaoTap,
     required this.nomeUsuarioLocal,
@@ -83,7 +87,7 @@ class TabuleiroWidget extends StatelessWidget {
                     width: cellSize,
                     height: cellSize,
                     child: peca != null
-                        ? _buildPecaCell(peca, cellSize)
+                        ? _buildPecaCell(peca, cellSize, posicaoAtual)
                         : _buildEmptyCell(posicaoAtual, cellSize),
                   );
                 },
@@ -95,14 +99,28 @@ class TabuleiroWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildPecaCell(PecaJogo peca, double cellSize) {
+  Widget _buildPecaCell(
+    PecaJogo peca,
+    double cellSize,
+    PosicaoTabuleiro posicao,
+  ) {
     // Identifica se a peça pertence ao jogador LOCAL
     final bool ehDoJogadorLocal = _isPecaDoJogadorLocal(peca);
+
+    // Verifica se é a vez do jogador local
+    final bool ehVezDoJogadorLocal = _isVezDoJogadorLocal();
+
+    // Verifica se esta posição é um movimento válido
+    final bool ehMovimentoValido = movimentosValidos.any(
+      (pos) => pos.linha == posicao.linha && pos.coluna == posicao.coluna,
+    );
 
     return PecaJogoWidget(
       peca: peca,
       estaSelecionada: idPecaSelecionada == peca.id,
       ehDoJogadorAtual: ehDoJogadorLocal,
+      ehVezDoJogadorLocal: ehVezDoJogadorLocal,
+      ehMovimentoValido: ehMovimentoValido,
       onPecaTap: onPecaTap,
       cellSize: cellSize,
     );
@@ -121,8 +139,9 @@ class TabuleiroWidget extends StatelessWidget {
       if (nomeJogador == nomeLocal) return true;
 
       // Busca parcial (contém)
-      if (nomeJogador.contains(nomeLocal) || nomeLocal.contains(nomeJogador))
+      if (nomeJogador.contains(nomeLocal) || nomeLocal.contains(nomeJogador)) {
         return true;
+      }
 
       return false;
     }).toList();
@@ -150,22 +169,53 @@ class TabuleiroWidget extends StatelessWidget {
     return false;
   }
 
+  /// Verifica se é a vez do jogador local
+  bool _isVezDoJogadorLocal() {
+    if (nomeUsuarioLocal == null) return false;
+
+    final jogadorDaVez = estadoJogo.jogadores.firstWhere(
+      (j) => j.id == estadoJogo.idJogadorDaVez,
+    );
+
+    final nomeJogadorDaVez = jogadorDaVez.nome.trim().toLowerCase();
+    final nomeLocal = nomeUsuarioLocal!.trim().toLowerCase();
+
+    // Busca exata ou parcial
+    return nomeJogadorDaVez == nomeLocal ||
+        nomeJogadorDaVez.contains(nomeLocal) ||
+        nomeLocal.contains(nomeJogadorDaVez);
+  }
+
   Widget _buildEmptyCell(PosicaoTabuleiro posicao, double cellSize) {
-    return GestureDetector(
-      onTap: () => onPosicaoTap(posicao),
-      child: Container(
-        width: cellSize,
-        height: cellSize,
-        margin: const EdgeInsets.all(1.0),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          border: idPecaSelecionada != null
-              ? Border.all(
-                  color: Colors.yellow.withValues(alpha: 0.3),
-                  width: 1,
+    // Verifica se esta posição é um movimento válido
+    final bool ehMovimentoValido = movimentosValidos.any(
+      (pos) => pos.linha == posicao.linha && pos.coluna == posicao.coluna,
+    );
+
+    return MouseRegion(
+      cursor: ehMovimentoValido
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: () => onPosicaoTap(posicao),
+        child: Container(
+          width: cellSize,
+          height: cellSize,
+          margin: const EdgeInsets.all(1.0),
+          decoration: BoxDecoration(
+            color: ehMovimentoValido
+                ? Colors.green.withValues(alpha: 0.4)
+                : Colors.transparent,
+            border: ehMovimentoValido
+                ? Border.all(color: Colors.green, width: 2)
+                : null,
+            borderRadius: BorderRadius.circular(4.0),
+          ),
+          child: ehMovimentoValido
+              ? const Center(
+                  child: Icon(Icons.circle, color: Colors.green, size: 12),
                 )
               : null,
-          borderRadius: BorderRadius.circular(4.0),
         ),
       ),
     );

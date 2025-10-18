@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../modelos_jogo.dart';
 
 /// Um widget que representa visualmente uma única peça do jogo no tabuleiro.
@@ -12,6 +13,12 @@ class PecaJogoWidget extends StatelessWidget {
   /// Flag para indicar se a peça pertence ao jogador que está controlando o dispositivo.
   final bool ehDoJogadorAtual;
 
+  /// Flag para indicar se é a vez do jogador local.
+  final bool ehVezDoJogadorLocal;
+
+  /// Flag para indicar se esta posição é um movimento válido.
+  final bool ehMovimentoValido;
+
   /// Callback acionado quando o usuário toca na peça.
   final Function(String) onPecaTap;
 
@@ -23,6 +30,8 @@ class PecaJogoWidget extends StatelessWidget {
     required this.peca,
     required this.estaSelecionada,
     required this.ehDoJogadorAtual,
+    required this.ehVezDoJogadorLocal,
+    required this.ehMovimentoValido,
     required this.onPecaTap,
     required this.cellSize,
   });
@@ -69,31 +78,65 @@ class PecaJogoWidget extends StatelessWidget {
       );
     }
 
-    return GestureDetector(
-      onTap: () => onPecaTap(peca.id),
-      child: Container(
-        width: cellSize,
-        height: cellSize,
-        margin: EdgeInsets.all(margin),
-        decoration: BoxDecoration(
-          color: corDaEquipe,
-          borderRadius: BorderRadius.circular(borderRadius),
-          border: estaSelecionada
-              ? Border.all(color: Colors.yellow[400]!, width: 2)
-              : Border.all(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  width: 1,
+    // Determina o cursor baseado nas condições
+    final bool podeSerClicada = ehDoJogadorAtual && ehVezDoJogadorLocal;
+    final SystemMouseCursor cursor = podeSerClicada
+        ? SystemMouseCursors.click
+        : ehMovimentoValido
+        ? SystemMouseCursors.click
+        : SystemMouseCursors.basic;
+
+    return MouseRegion(
+      cursor: cursor,
+      child: GestureDetector(
+        onTap: () => onPecaTap(peca.id),
+        child: Container(
+          width: cellSize,
+          height: cellSize,
+          margin: EdgeInsets.all(margin),
+          decoration: BoxDecoration(
+            color: ehMovimentoValido
+                ? Colors.red.withValues(
+                    alpha: 0.8,
+                  ) // Peça inimiga que pode ser atacada
+                : corDaEquipe,
+            borderRadius: BorderRadius.circular(borderRadius),
+            border: estaSelecionada
+                ? Border.all(color: Colors.yellow[400]!, width: 2)
+                : ehMovimentoValido
+                ? Border.all(color: Colors.red, width: 2)
+                : Border.all(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    width: 1,
+                  ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                spreadRadius: 1,
+                blurRadius: 2,
+                offset: const Offset(1, 1),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Center(child: conteudoPeca),
+              if (ehMovimentoValido)
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
                 ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              spreadRadius: 1,
-              blurRadius: 2,
-              offset: const Offset(1, 1),
-            ),
-          ],
+            ],
+          ),
         ),
-        child: Center(child: conteudoPeca),
       ),
     );
   }

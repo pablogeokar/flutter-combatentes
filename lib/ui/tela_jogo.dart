@@ -163,6 +163,7 @@ class TelaJogo extends ConsumerWidget {
                       child: TabuleiroWidget(
                         estadoJogo: estadoJogo,
                         idPecaSelecionada: uiState.idPecaSelecionada,
+                        movimentosValidos: uiState.movimentosValidos,
                         nomeUsuarioLocal: nomeUsuario,
                         onPecaTap: (idPeca) => ref
                             .read(gameStateProvider.notifier)

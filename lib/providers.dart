@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import './game_socket_service.dart';
 import './modelos_jogo.dart';
 import './services/user_preferences.dart';
+import './game_controller.dart';
 
 /// Estados possíveis da conexão
 enum StatusConexao {
@@ -20,6 +21,7 @@ class TelaJogoState {
   /// O estado do jogo pode ser nulo durante a conexão inicial.
   final EstadoJogo? estadoJogo;
   final String? idPecaSelecionada;
+  final List<PosicaoTabuleiro> movimentosValidos;
   final String? erro;
   final bool conectando;
   final String? nomeUsuario;
@@ -28,6 +30,7 @@ class TelaJogoState {
   const TelaJogoState({
     this.estadoJogo,
     this.idPecaSelecionada,
+    this.movimentosValidos = const [],
     this.erro,
     this.conectando = true,
     this.nomeUsuario,
@@ -37,6 +40,7 @@ class TelaJogoState {
   TelaJogoState copyWith({
     EstadoJogo? estadoJogo,
     String? idPecaSelecionada,
+    List<PosicaoTabuleiro>? movimentosValidos,
     String? erro,
     bool? conectando,
     String? nomeUsuario,
@@ -49,6 +53,9 @@ class TelaJogoState {
       idPecaSelecionada: limparSelecao
           ? null
           : idPecaSelecionada ?? this.idPecaSelecionada,
+      movimentosValidos: limparSelecao
+          ? const []
+          : movimentosValidos ?? this.movimentosValidos,
       erro: limparErro ? null : erro ?? this.erro,
       conectando: conectando ?? this.conectando,
       nomeUsuario: nomeUsuario ?? this.nomeUsuario,
@@ -72,6 +79,7 @@ final gameStateProvider =
 
 class GameStateNotifier extends StateNotifier<TelaJogoState> {
   final Ref _ref;
+  final GameController _gameController = GameController();
 
   GameStateNotifier(this._ref) : super(const TelaJogoState()) {
     _init();
@@ -121,7 +129,7 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
     }
   }
 
-  /// Apenas armazena a peça selecionada localmente na UI.
+  /// Apenas armazena a peça selecionada localmente na UI e calcula movimentos válidos.
   void selecionarPeca(String idPeca) {
     if (state.estadoJogo == null) return;
 
@@ -132,7 +140,17 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
     // A lógica de quem pode selecionar o quê permanece no cliente para feedback visual rápido.
     if (peca.equipe == jogadorDaVez.equipe) {
-      state = state.copyWith(idPecaSelecionada: idPeca, limparErro: true);
+      // Calcula os movimentos válidos para a peça selecionada
+      final movimentosValidos = _gameController.calcularMovimentosValidos(
+        estadoAtual: state.estadoJogo!,
+        idPeca: idPeca,
+      );
+
+      state = state.copyWith(
+        idPecaSelecionada: idPeca,
+        movimentosValidos: movimentosValidos,
+        limparErro: true,
+      );
     }
   }
 

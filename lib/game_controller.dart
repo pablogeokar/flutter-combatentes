@@ -43,6 +43,167 @@ class GameController {
     const PosicaoTabuleiro(linha: 5, coluna: 7),
   };
 
+  /// Calcula todas as posições válidas para onde uma peça pode se mover.
+  ///
+  /// Retorna uma lista de [PosicaoTabuleiro] representando todas as casas
+  /// válidas para onde a peça pode se mover no estado atual do jogo.
+  List<PosicaoTabuleiro> calcularMovimentosValidos({
+    required EstadoJogo estadoAtual,
+    required String idPeca,
+  }) {
+    final List<PosicaoTabuleiro> movimentosValidos = [];
+
+    // Encontrar a peça
+    final PecaJogo? peca = estadoAtual.pecas.cast<PecaJogo?>().firstWhere(
+      (p) => p?.id == idPeca,
+      orElse: () => null,
+    );
+
+    if (peca == null) return movimentosValidos;
+
+    // Peças que não podem se mover
+    if (peca.patente == Patente.minaTerrestre ||
+        peca.patente == Patente.prisioneiro) {
+      return movimentosValidos;
+    }
+
+    final posAtual = peca.posicao;
+
+    // Para soldados, verificar movimentos em linha reta
+    if (peca.patente == Patente.soldado) {
+      // Movimento horizontal (direita)
+      for (int c = posAtual.coluna + 1; c < 10; c++) {
+        final novaPosicao = PosicaoTabuleiro(linha: posAtual.linha, coluna: c);
+        if (_isMovimentoValido(peca, novaPosicao, estadoAtual.pecas)) {
+          movimentosValidos.add(novaPosicao);
+          // Se há uma peça inimiga, pode atacar mas não passar por ela
+          final pecaNoDestino = estadoAtual.pecas.cast<PecaJogo?>().firstWhere(
+            (p) =>
+                p?.posicao.linha == novaPosicao.linha &&
+                p?.posicao.coluna == novaPosicao.coluna,
+            orElse: () => null,
+          );
+          if (pecaNoDestino != null) break;
+        } else {
+          break; // Caminho bloqueado
+        }
+      }
+
+      // Movimento horizontal (esquerda)
+      for (int c = posAtual.coluna - 1; c >= 0; c--) {
+        final novaPosicao = PosicaoTabuleiro(linha: posAtual.linha, coluna: c);
+        if (_isMovimentoValido(peca, novaPosicao, estadoAtual.pecas)) {
+          movimentosValidos.add(novaPosicao);
+          final pecaNoDestino = estadoAtual.pecas.cast<PecaJogo?>().firstWhere(
+            (p) =>
+                p?.posicao.linha == novaPosicao.linha &&
+                p?.posicao.coluna == novaPosicao.coluna,
+            orElse: () => null,
+          );
+          if (pecaNoDestino != null) break;
+        } else {
+          break;
+        }
+      }
+
+      // Movimento vertical (baixo)
+      for (int l = posAtual.linha + 1; l < 10; l++) {
+        final novaPosicao = PosicaoTabuleiro(linha: l, coluna: posAtual.coluna);
+        if (_isMovimentoValido(peca, novaPosicao, estadoAtual.pecas)) {
+          movimentosValidos.add(novaPosicao);
+          final pecaNoDestino = estadoAtual.pecas.cast<PecaJogo?>().firstWhere(
+            (p) =>
+                p?.posicao.linha == novaPosicao.linha &&
+                p?.posicao.coluna == novaPosicao.coluna,
+            orElse: () => null,
+          );
+          if (pecaNoDestino != null) break;
+        } else {
+          break;
+        }
+      }
+
+      // Movimento vertical (cima)
+      for (int l = posAtual.linha - 1; l >= 0; l--) {
+        final novaPosicao = PosicaoTabuleiro(linha: l, coluna: posAtual.coluna);
+        if (_isMovimentoValido(peca, novaPosicao, estadoAtual.pecas)) {
+          movimentosValidos.add(novaPosicao);
+          final pecaNoDestino = estadoAtual.pecas.cast<PecaJogo?>().firstWhere(
+            (p) =>
+                p?.posicao.linha == novaPosicao.linha &&
+                p?.posicao.coluna == novaPosicao.coluna,
+            orElse: () => null,
+          );
+          if (pecaNoDestino != null) break;
+        } else {
+          break;
+        }
+      }
+    } else {
+      // Para outras peças, verificar apenas casas adjacentes
+      final List<PosicaoTabuleiro> posicoesAdjacentes = [
+        PosicaoTabuleiro(
+          linha: posAtual.linha - 1,
+          coluna: posAtual.coluna,
+        ), // Cima
+        PosicaoTabuleiro(
+          linha: posAtual.linha + 1,
+          coluna: posAtual.coluna,
+        ), // Baixo
+        PosicaoTabuleiro(
+          linha: posAtual.linha,
+          coluna: posAtual.coluna - 1,
+        ), // Esquerda
+        PosicaoTabuleiro(
+          linha: posAtual.linha,
+          coluna: posAtual.coluna + 1,
+        ), // Direita
+      ];
+
+      for (final novaPosicao in posicoesAdjacentes) {
+        // Verificar se está dentro do tabuleiro
+        if (novaPosicao.linha >= 0 &&
+            novaPosicao.linha < 10 &&
+            novaPosicao.coluna >= 0 &&
+            novaPosicao.coluna < 10) {
+          if (_isMovimentoValido(peca, novaPosicao, estadoAtual.pecas)) {
+            movimentosValidos.add(novaPosicao);
+          }
+        }
+      }
+    }
+
+    return movimentosValidos;
+  }
+
+  /// Verifica se um movimento específico é válido (versão simplificada para cálculo de movimentos)
+  bool _isMovimentoValido(
+    PecaJogo peca,
+    PosicaoTabuleiro novaPosicao,
+    List<PecaJogo> pecas,
+  ) {
+    // Verifica se a nova posição é um lago
+    if (_lagos.any(
+      (l) => l.linha == novaPosicao.linha && l.coluna == novaPosicao.coluna,
+    )) {
+      return false;
+    }
+
+    // Verifica se há uma peça da mesma equipe no destino
+    final pecaNoDestino = pecas.cast<PecaJogo?>().firstWhere(
+      (p) =>
+          p?.posicao.linha == novaPosicao.linha &&
+          p?.posicao.coluna == novaPosicao.coluna,
+      orElse: () => null,
+    );
+
+    if (pecaNoDestino != null && pecaNoDestino.equipe == peca.equipe) {
+      return false;
+    }
+
+    return true;
+  }
+
   /// O método principal para processar a jogada de um jogador.
   ///
   /// Recebe o estado atual do jogo, o ID da peça a ser movida e a posição
