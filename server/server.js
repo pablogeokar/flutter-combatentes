@@ -209,12 +209,8 @@ wss.on('connection', (ws) => {
 });
 
 function broadcastGameState(session) {
-    const { ws: ws1, ...p1 } = session.jogadores[0];
-    const { ws: ws2, ...p2 } = session.jogadores[1];
-    const estadoParaCliente = {
-        ...session.estadoJogo,
-        jogadores: [p1, p2],
-    };
+    // O estado do jogo agora está sempre limpo, então podemos enviá-lo diretamente.
+    const estadoParaCliente = session.estadoJogo;
     const message = JSON.stringify({ type: 'atualizacaoEstado', payload: estadoParaCliente });
     session.jogadores.forEach(player => {
         if (player.ws.readyState === 1 /* WebSocket.OPEN */) {
@@ -233,6 +229,10 @@ function findGameByPlayerId(clientId) {
 }
 
 function createInitialGameState(gameId, p1, p2) {
+    // Remove a propriedade 'ws' dos objetos de jogador antes de incluí-los no estado.
+    const { ws: ws1, ...player1_clean } = p1;
+    const { ws: ws2, ...player2_clean } = p2;
+
     const pecas = [];
     const contagemPecas = {
       general: 1, coronel: 1, major: 2, capitao: 3, tenente: 4, sargento: 4,
@@ -248,7 +248,7 @@ function createInitialGameState(gameId, p1, p2) {
         for (let i = 0; i < contagemPecas[key]; i++) {
             pecas.push({
                 id: `preta_${key}_${i}`,
-                patente: Patentes[key],
+                patente: key,
                 equipe: Equipe.Preta,
                 posicao: posicoesPretas[posIndexPreto++],
                 foiRevelada: false,
@@ -265,7 +265,7 @@ function createInitialGameState(gameId, p1, p2) {
         for (let i = 0; i < contagemPecas[key]; i++) {
             pecas.push({
                 id: `verde_${key}_${i}`,
-                patente: Patentes[key],
+                patente: key,
                 equipe: Equipe.Verde,
                 posicao: posicoesVerdes[posIndexVerde++],
                 foiRevelada: false,
@@ -275,7 +275,7 @@ function createInitialGameState(gameId, p1, p2) {
 
     return {
         idPartida: gameId,
-        jogadores: [p1, p2],
+        jogadores: [player1_clean, player2_clean],
         pecas: pecas,
         idJogadorDaVez: p1.id,
         jogoTerminou: false,
