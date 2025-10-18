@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8083;
 
 // Inicializar o gerenciador de sessões de jogo
 const gameSessionManager = new GameSessionManager();
