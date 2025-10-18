@@ -9,6 +9,7 @@ enum StatusConexao {
   conectando('Conectando ao servidor...'),
   conectado('Conectado ao servidor. Aguardando oponente...'),
   jogando('Partida em andamento'),
+  oponenteDesconectado('Oponente desconectou'),
   desconectado('Desconectado do servidor'),
   erro('Erro de conexão');
 
@@ -116,6 +117,11 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
           statusConexao: novoStatus,
           conectando: novoStatus == StatusConexao.conectando,
         );
+
+        // Se o oponente desconectou, limpa o estado do jogo
+        if (novoStatus == StatusConexao.oponenteDesconectado) {
+          state = state.copyWith(estadoJogo: null, limparSelecao: true);
+        }
       });
 
       // Conecta ao servidor
@@ -245,6 +251,21 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
   /// Tenta reconectar ao servidor
   void reconnect() {
+    _reconnectAsync();
+  }
+
+  /// Volta para o estado de aguardando oponente após desconexão
+  void voltarParaAguardandoOponente() {
+    // Limpa o estado atual e reconecta
+    state = state.copyWith(
+      estadoJogo: null,
+      limparSelecao: true,
+      limparErro: true,
+      conectando: true,
+      statusConexao: StatusConexao.conectando,
+    );
+
+    // Reconecta ao servidor
     _reconnectAsync();
   }
 

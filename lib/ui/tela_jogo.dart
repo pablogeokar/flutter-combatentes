@@ -20,13 +20,20 @@ class TelaJogo extends ConsumerWidget {
 
     // Escuta por mudanças de estado para mostrar dialogs ou snackbars, sem reconstruir o widget.
     ref.listen<TelaJogoState>(gameStateProvider, (previous, next) {
+      // Detecta quando o oponente desconecta
+      if (next.statusConexao == StatusConexao.oponenteDesconectado &&
+          previous?.statusConexao != StatusConexao.oponenteDesconectado) {
+        _showOpponentDisconnectedDialog(context, ref);
+      }
+
       // Mostra uma mensagem de erro se uma ocorrer.
       if (next.erro != null && (previous?.erro != next.erro)) {
         // Verifica se é um erro de conexão para mostrar opção de reconexão
         if (next.erro!.toLowerCase().contains('conexão') ||
             next.erro!.toLowerCase().contains('servidor')) {
           _showConnectionErrorDialog(context, next.erro!, ref);
-        } else {
+        } else if (!next.erro!.toLowerCase().contains('oponente')) {
+          // Não mostra snackbar para erro de oponente desconectado (já tem diálogo)
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(next.erro!), backgroundColor: Colors.red),
           );
@@ -123,11 +130,17 @@ class TelaJogo extends ConsumerWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const CircularProgressIndicator(),
+                      // Mostra ícone diferente baseado no status
+                      _buildStatusIcon(uiState.statusConexao),
                       const SizedBox(height: 16),
                       Text(
-                        uiState.statusConexao.mensagem,
-                        style: const TextStyle(color: Colors.white),
+                        _getStatusMessage(uiState.statusConexao),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                       if (uiState.erro != null &&
                           (uiState.erro!.toLowerCase().contains('conexão') ||
@@ -177,6 +190,55 @@ class TelaJogo extends ConsumerWidget {
                 ),
               ],
             ),
+        ],
+      ),
+    );
+  }
+
+  /// Mostra diálogo quando o oponente desconecta
+  void _showOpponentDisconnectedDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.person_off, color: Colors.orange, size: 24),
+            SizedBox(width: 8),
+            Text('Oponente Desconectou'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Seu oponente saiu da partida.',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Você será redirecionado para aguardar um novo oponente.',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Volta para o estado de aguardando oponente
+              ref
+                  .read(gameStateProvider.notifier)
+                  .voltarParaAguardandoOponente();
+            },
+            icon: Icon(Icons.refresh),
+            label: Text('Aguardar Novo Oponente'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+            ),
+          ),
         ],
       ),
     );
@@ -513,6 +575,46 @@ class TelaJogo extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Constrói o ícone apropriado baseado no status da conexão
+  Widget _buildStatusIcon(StatusConexao status) {
+    switch (status) {
+      case StatusConexao.conectando:
+        return const CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        );
+      case StatusConexao.conectado:
+        return const Icon(Icons.people_outline, color: Colors.blue, size: 48);
+      case StatusConexao.oponenteDesconectado:
+        return const Icon(Icons.person_search, color: Colors.orange, size: 48);
+      case StatusConexao.erro:
+        return const Icon(Icons.error_outline, color: Colors.red, size: 48);
+      case StatusConexao.desconectado:
+        return const Icon(Icons.wifi_off, color: Colors.grey, size: 48);
+      default:
+        return const CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        );
+    }
+  }
+
+  /// Retorna a mensagem apropriada baseada no status da conexão
+  String _getStatusMessage(StatusConexao status) {
+    switch (status) {
+      case StatusConexao.conectando:
+        return 'Conectando ao servidor...';
+      case StatusConexao.conectado:
+        return 'Conectado ao servidor.\nAguardando oponente...';
+      case StatusConexao.oponenteDesconectado:
+        return 'Aguardando novo oponente...\n\nSeu oponente anterior saiu da partida.';
+      case StatusConexao.erro:
+        return 'Erro de conexão com o servidor.';
+      case StatusConexao.desconectado:
+        return 'Desconectado do servidor.';
+      default:
+        return 'Conectando...';
+    }
   }
 
   /// Mostra um diálogo de fim de jogo.

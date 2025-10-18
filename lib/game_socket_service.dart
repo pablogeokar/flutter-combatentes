@@ -94,9 +94,16 @@ class GameSocketService {
               _erroController.add(erro);
             } else if (type == 'mensagemServidor') {
               print('Mensagem do Servidor: ${data['payload']}');
+              final mensagem = data['payload'].toString();
+
+              // Verifica se o oponente desconectou
+              if (mensagem.contains('oponente desconectou') ||
+                  mensagem.contains('O oponente desconectou')) {
+                _statusController.add(StatusConexao.oponenteDesconectado);
+                _erroController.add('O oponente saiu da partida.');
+              }
               // Mantém status conectado quando recebe mensagens do servidor
-              if (_isConnected &&
-                  data['payload'].toString().contains('Aguardando')) {
+              else if (_isConnected && mensagem.contains('Aguardando')) {
                 _statusController.add(StatusConexao.conectado);
               }
             }
