@@ -121,4 +121,28 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
     final socketService = _ref.read(gameSocketProvider);
     socketService.enviarNome(novoNome);
   }
+
+  /// Limpa o erro atual
+  void clearError() {
+    state = state.copyWith(limparErro: true);
+  }
+
+  /// Tenta reconectar ao servidor
+  void reconnect() async {
+    // Reseta o estado para conectando
+    state = state.copyWith(
+      conectando: true,
+      estadoJogo: null,
+      limparErro: true,
+      limparSelecao: true,
+    );
+
+    // Obtém o nome do usuário atual
+    final nomeUsuario =
+        state.nomeUsuario ?? await UserPreferences.getUserName();
+
+    // Tenta reconectar
+    final socketService = _ref.read(gameSocketProvider);
+    socketService.reconnect('ws://localhost:8083', nomeUsuario: nomeUsuario);
+  }
 }

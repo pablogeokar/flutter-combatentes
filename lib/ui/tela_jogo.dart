@@ -22,9 +22,15 @@ class TelaJogo extends ConsumerWidget {
     ref.listen<TelaJogoState>(gameStateProvider, (previous, next) {
       // Mostra uma mensagem de erro se uma ocorrer.
       if (next.erro != null && (previous?.erro != next.erro)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.erro!), backgroundColor: Colors.red),
-        );
+        // Verifica se é um erro de conexão para mostrar opção de reconexão
+        if (next.erro!.toLowerCase().contains('conexão') ||
+            next.erro!.toLowerCase().contains('servidor')) {
+          _showConnectionErrorDialog(context, next.erro!, ref);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(next.erro!), backgroundColor: Colors.red),
+          );
+        }
       }
       // Mostra o diálogo de fim de jogo quando a partida termina.
       if (next.estadoJogo?.jogoTerminou == true &&
@@ -103,26 +109,43 @@ class TelaJogo extends ConsumerWidget {
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/board_background.png',
+              'assets/images/tela_inicial.jpg',
               fit: BoxFit.cover,
             ),
           ),
           // Mostra um indicador de carregamento enquanto conecta ou o estado é nulo
           if (estadoJogo == null)
-            const Center(
+            Center(
               child: Card(
                 color: Colors.black54,
                 child: Padding(
-                  padding: EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
                       Text(
-                        'Conectando ao servidor...',
-                        style: TextStyle(color: Colors.white),
+                        uiState.conectando
+                            ? 'Conectando ao servidor...'
+                            : 'Aguardando conexão...',
+                        style: const TextStyle(color: Colors.white),
                       ),
+                      if (uiState.erro != null &&
+                          (uiState.erro!.toLowerCase().contains('conexão') ||
+                              uiState.erro!.toLowerCase().contains('servidor')))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16.0),
+                          child: ElevatedButton.icon(
+                            onPressed: () => _attemptReconnection(context, ref),
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Tentar Nova Conexão'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2E7D32),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -142,6 +165,7 @@ class TelaJogo extends ConsumerWidget {
                       child: TabuleiroWidget(
                         estadoJogo: estadoJogo,
                         idPecaSelecionada: uiState.idPecaSelecionada,
+                        nomeUsuarioLocal: nomeUsuario,
                         onPecaTap: (idPeca) => ref
                             .read(gameStateProvider.notifier)
                             .selecionarPeca(idPeca),
@@ -155,6 +179,96 @@ class TelaJogo extends ConsumerWidget {
               ],
             ),
         ],
+      ),
+    );
+  }
+
+  /// Mostra diálogo de erro de conexão com opção de reconectar
+  void _showConnectionErrorDialog(
+    BuildContext context,
+    String errorMessage,
+    WidgetRef ref,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.wifi_off, color: Colors.red, size: 24),
+            SizedBox(width: 8),
+            Text('Erro de Conexão'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(errorMessage, style: TextStyle(fontSize: 16)),
+            SizedBox(height: 16),
+            Text(
+              'Verifique se o servidor está ativo e tente novamente.',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Volta para a tela de nome do usuário
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const TelaNomeUsuario(),
+                ),
+              );
+            },
+            child: Text('Cancelar'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _attemptReconnection(context, ref);
+            },
+            icon: Icon(Icons.refresh),
+            label: Text('Tentar Nova Conexão'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Tenta reconectar ao servidor
+  void _attemptReconnection(BuildContext context, WidgetRef ref) {
+    // Limpa o erro atual
+    ref.read(gameStateProvider.notifier).clearError();
+
+    // Tenta reconectar
+    ref.read(gameStateProvider.notifier).reconnect();
+
+    // Mostra feedback visual
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            SizedBox(width: 12),
+            Text('Tentando reconectar...'),
+          ],
+        ),
+        backgroundColor: Color(0xFF2E7D32),
+        duration: Duration(seconds: 3),
       ),
     );
   }

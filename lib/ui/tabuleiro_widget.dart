@@ -16,12 +16,16 @@ class TabuleiroWidget extends StatelessWidget {
   /// Callback para quando uma posição vazia no tabuleiro é tocada.
   final Function(PosicaoTabuleiro) onPosicaoTap;
 
+  /// Nome do usuário local para identificar suas peças
+  final String? nomeUsuarioLocal;
+
   const TabuleiroWidget({
     super.key,
     required this.estadoJogo,
     required this.idPecaSelecionada,
     required this.onPecaTap,
     required this.onPosicaoTap,
+    required this.nomeUsuarioLocal,
   });
 
   @override
@@ -92,19 +96,58 @@ class TabuleiroWidget extends StatelessWidget {
   }
 
   Widget _buildPecaCell(PecaJogo peca, double cellSize) {
-    final bool ehDoJogadorAtual =
-        estadoJogo.jogadores
-            .firstWhere((j) => j.id == estadoJogo.idJogadorDaVez)
-            .equipe ==
-        peca.equipe;
+    // Identifica se a peça pertence ao jogador LOCAL
+    final bool ehDoJogadorLocal = _isPecaDoJogadorLocal(peca);
 
     return PecaJogoWidget(
       peca: peca,
       estaSelecionada: idPecaSelecionada == peca.id,
-      ehDoJogadorAtual: ehDoJogadorAtual,
+      ehDoJogadorAtual: ehDoJogadorLocal,
       onPecaTap: onPecaTap,
       cellSize: cellSize,
     );
+  }
+
+  /// Verifica se a peça pertence ao jogador local (usuário deste dispositivo)
+  bool _isPecaDoJogadorLocal(PecaJogo peca) {
+    if (nomeUsuarioLocal == null) return false;
+
+    // Busca o jogador local pelo nome
+    final jogadorLocal = estadoJogo.jogadores.where((jogador) {
+      final nomeJogador = jogador.nome.trim().toLowerCase();
+      final nomeLocal = nomeUsuarioLocal!.trim().toLowerCase();
+
+      // Busca exata
+      if (nomeJogador == nomeLocal) return true;
+
+      // Busca parcial (contém)
+      if (nomeJogador.contains(nomeLocal) || nomeLocal.contains(nomeJogador))
+        return true;
+
+      return false;
+    }).toList();
+
+    if (jogadorLocal.isNotEmpty) {
+      return peca.equipe == jogadorLocal.first.equipe;
+    }
+
+    // Fallback: Se não encontrou por nome, tenta heurística
+    // Se há apenas um jogador com nome real, assume que é o local
+    final jogadoresComNomeReal = estadoJogo.jogadores
+        .where(
+          (j) =>
+              !j.nome.contains("Aguardando") &&
+              !j.nome.contains("Jogador") &&
+              j.nome.trim().length > 2,
+        )
+        .toList();
+
+    if (jogadoresComNomeReal.length == 1) {
+      return peca.equipe == jogadoresComNomeReal.first.equipe;
+    }
+
+    // Se tudo falhar, retorna false (peça será tratada como do oponente)
+    return false;
   }
 
   Widget _buildEmptyCell(PosicaoTabuleiro posicao, double cellSize) {

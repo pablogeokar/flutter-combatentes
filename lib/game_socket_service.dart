@@ -92,6 +92,27 @@ class GameSocketService {
     _channel.sink.add(message);
   }
 
+  /// Reconecta ao servidor
+  void reconnect(String url, {String? nomeUsuario}) {
+    try {
+      // Fecha a conexão atual se existir
+      _channel.sink.close();
+    } catch (e) {
+      // Ignora erros ao fechar conexão anterior
+    }
+
+    // Limpa os controllers
+    if (!_estadoController.isClosed) {
+      // Não fecha os controllers, apenas limpa os erros
+    }
+    if (!_erroController.isClosed) {
+      // Não fecha os controllers, apenas limpa os erros
+    }
+
+    // Tenta nova conexão
+    connect(url, nomeUsuario: nomeUsuario);
+  }
+
   /// Fecha a conexão com o WebSocket.
   void dispose() {
     _channel.sink.close();
