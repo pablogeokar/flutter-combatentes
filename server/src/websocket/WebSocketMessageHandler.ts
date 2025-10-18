@@ -89,6 +89,12 @@ export class WebSocketMessageHandler {
       return;
     }
 
+    console.log(
+      `🎮 Movimento solicitado: Peça ${idPeca} para posição (${novaPosicao.linha}, ${novaPosicao.coluna})`
+    );
+
+    const pecasAntes = session.estadoJogo.pecas.length;
+
     const result = this.gameController.moverPeca(
       session.estadoJogo,
       idPeca,
@@ -97,9 +103,19 @@ export class WebSocketMessageHandler {
     );
 
     if (result.novoEstado) {
+      const pecasDepois = result.novoEstado.pecas.length;
+
+      if (pecasAntes > pecasDepois) {
+        console.log(
+          `⚔️ COMBATE DETECTADO! Peças antes: ${pecasAntes}, depois: ${pecasDepois}`
+        );
+      }
+
       session.estadoJogo = result.novoEstado;
       this.broadcastGameState(session);
+      console.log(`✅ Estado do jogo atualizado e enviado aos clientes`);
     } else if (result.erro) {
+      console.log(`❌ Erro no movimento: ${result.erro}`);
       this.sendErrorMessage(ws, result.erro);
     }
   }

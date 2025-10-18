@@ -55,8 +55,30 @@ export class GameController {
         p.posicao.coluna === novaPosicao.coluna
     );
 
+    console.log(
+      `🔍 Verificando combate na posição (${novaPosicao.linha}, ${novaPosicao.coluna})`
+    );
+    console.log(
+      `👤 Peça atacante: ${pecaAMover.patente} (${pecaAMover.equipe})`
+    );
+
     if (pecaDefensora) {
+      console.log(
+        `🛡️ Peça defensora encontrada: ${pecaDefensora.patente} (${pecaDefensora.equipe})`
+      );
+      console.log(
+        `⚔️ INICIANDO COMBATE: ${pecaAMover.patente} vs ${pecaDefensora.patente}`
+      );
+
       const resultadoCombate = this.resolverCombate(pecaAMover, pecaDefensora);
+      console.log(
+        `🏆 Resultado do combate: ${
+          resultadoCombate.vencedor
+            ? resultadoCombate.vencedor.patente
+            : "EMPATE"
+        }`
+      );
+
       pecasAtualizadas = this.processarCombate(
         pecasAtualizadas,
         pecaAMover,
@@ -65,6 +87,7 @@ export class GameController {
         resultadoCombate
       );
     } else {
+      console.log(`🚶 Movimento simples - nenhuma peça na posição de destino`);
       const indicePeca = pecasAtualizadas.findIndex((p) => p.id === idPeca);
       pecasAtualizadas[indicePeca] = { ...pecaAMover, posicao: novaPosicao };
     }

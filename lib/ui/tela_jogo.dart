@@ -26,6 +26,12 @@ class TelaJogo extends ConsumerWidget {
         _showOpponentDisconnectedDialog(context, ref);
       }
 
+      // Mostra resultado do combate
+      if (next.ultimoCombate != null &&
+          previous?.ultimoCombate != next.ultimoCombate) {
+        _showCombatResultDialog(context, next.ultimoCombate!, ref);
+      }
+
       // Mostra uma mensagem de erro se uma ocorrer.
       if (next.erro != null && (previous?.erro != next.erro)) {
         // Verifica se é um erro de conexão para mostrar opção de reconexão
@@ -193,6 +199,194 @@ class TelaJogo extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Mostra diálogo com o resultado do combate
+  void _showCombatResultDialog(
+    BuildContext context,
+    InformacoesCombate combate,
+    WidgetRef ref,
+  ) {
+    final bool ehMeuAtacante = _isMinhaEquipe(
+      combate.atacante,
+      ref.read(gameStateProvider).nomeUsuario,
+      ref,
+    );
+    final bool ehMeuDefensor = _isMinhaEquipe(
+      combate.defensor,
+      ref.read(gameStateProvider).nomeUsuario,
+      ref,
+    );
+
+    String titulo;
+    String mensagem;
+    Color corTitulo;
+    IconData icone;
+
+    if (combate.foiEmpate) {
+      titulo = "Empate!";
+      mensagem =
+          "${combate.atacante.patente.nome} vs ${combate.defensor.patente.nome}\n\nAmbas as peças foram eliminadas.";
+      corTitulo = Colors.orange;
+      icone = Icons.balance;
+    } else if (combate.vencedor != null) {
+      final bool vencedorEhMeu = _isMinhaEquipe(
+        combate.vencedor!,
+        ref.read(gameStateProvider).nomeUsuario,
+        ref,
+      );
+
+      if (vencedorEhMeu) {
+        titulo = "Vitória!";
+        corTitulo = Colors.green;
+        icone = Icons.military_tech;
+      } else {
+        titulo = "Derrota!";
+        corTitulo = Colors.red;
+        icone = Icons.close;
+      }
+
+      mensagem =
+          "${combate.atacante.patente.nome} atacou ${combate.defensor.patente.nome}\n\n";
+      mensagem += "${combate.vencedor!.patente.nome} venceu o combate!";
+
+      // Adiciona informações sobre regras especiais
+      if (combate.atacante.patente == Patente.agenteSecreto &&
+          combate.defensor.patente == Patente.general) {
+        mensagem += "\n\n🕵️ Agente Secreto eliminou o General!";
+      } else if (combate.defensor.patente == Patente.minaTerrestre) {
+        if (combate.atacante.patente == Patente.cabo) {
+          mensagem += "\n\n💣 Cabo desativou a Mina Terrestre!";
+        } else {
+          mensagem += "\n\n💥 Mina Terrestre explodiu!";
+        }
+      }
+    } else {
+      titulo = "Combate";
+      mensagem = "Resultado do combate não determinado.";
+      corTitulo = Colors.grey;
+      icone = Icons.help;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(icone, color: corTitulo, size: 24),
+            SizedBox(width: 8),
+            Text(titulo, style: TextStyle(color: corTitulo)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Mostra as peças do combate
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildCombatPieceInfo(
+                  combate.atacante,
+                  "Atacante",
+                  ehMeuAtacante,
+                ),
+                Icon(Icons.flash_on, color: Colors.orange, size: 32),
+                _buildCombatPieceInfo(
+                  combate.defensor,
+                  "Defensor",
+                  ehMeuDefensor,
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            Text(
+              mensagem,
+              style: TextStyle(fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Limpa as informações do combate
+              ref.read(gameStateProvider.notifier).limparCombate();
+            },
+            child: Text('Continuar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Constrói informações visuais de uma peça no combate
+  Widget _buildCombatPieceInfo(PecaJogo peca, String papel, bool ehMinha) {
+    return Column(
+      children: [
+        Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: peca.equipe == Equipe.preta
+                ? Colors.grey[800]
+                : Colors.green[700],
+            borderRadius: BorderRadius.circular(8),
+            border: ehMinha ? Border.all(color: Colors.yellow, width: 2) : null,
+          ),
+          child: Center(
+            child: Text(
+              peca.patente.nome,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 10,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          papel,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+        ),
+        Text(
+          "Força: ${peca.patente.forca}",
+          style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+        ),
+      ],
+    );
+  }
+
+  /// Verifica se uma peça pertence à equipe do jogador local
+  bool _isMinhaEquipe(PecaJogo peca, String? nomeUsuario, WidgetRef ref) {
+    if (nomeUsuario == null) return false;
+
+    final estadoJogo = ref.read(gameStateProvider).estadoJogo;
+    if (estadoJogo == null) return false;
+
+    // Busca o jogador local pelo nome
+    final jogadorLocal = estadoJogo.jogadores.where((jogador) {
+      final nomeJogador = jogador.nome.trim().toLowerCase();
+      final nomeLocal = nomeUsuario.trim().toLowerCase();
+
+      // Busca exata ou parcial
+      return nomeJogador == nomeLocal ||
+          nomeJogador.contains(nomeLocal) ||
+          nomeLocal.contains(nomeJogador);
+    }).firstOrNull;
+
+    if (jogadorLocal != null) {
+      return peca.equipe == jogadorLocal.equipe;
+    }
+
+    return false;
   }
 
   /// Mostra diálogo quando o oponente desconecta

@@ -17,12 +17,30 @@ enum StatusConexao {
   final String mensagem;
 }
 
+/// Informações sobre um combate que ocorreu
+class InformacoesCombate {
+  final PecaJogo atacante;
+  final PecaJogo defensor;
+  final PecaJogo? vencedor;
+  final bool foiEmpate;
+  final PosicaoTabuleiro posicaoCombate;
+
+  const InformacoesCombate({
+    required this.atacante,
+    required this.defensor,
+    this.vencedor,
+    required this.foiEmpate,
+    required this.posicaoCombate,
+  });
+}
+
 /// Um estado imutável que representa tudo o que é necessário para a UI da tela do jogo.
 class TelaJogoState {
   /// O estado do jogo pode ser nulo durante a conexão inicial.
   final EstadoJogo? estadoJogo;
   final String? idPecaSelecionada;
   final List<PosicaoTabuleiro> movimentosValidos;
+  final InformacoesCombate? ultimoCombate;
   final String? erro;
   final bool conectando;
   final String? nomeUsuario;
@@ -32,6 +50,7 @@ class TelaJogoState {
     this.estadoJogo,
     this.idPecaSelecionada,
     this.movimentosValidos = const [],
+    this.ultimoCombate,
     this.erro,
     this.conectando = true,
     this.nomeUsuario,
@@ -42,12 +61,14 @@ class TelaJogoState {
     EstadoJogo? estadoJogo,
     String? idPecaSelecionada,
     List<PosicaoTabuleiro>? movimentosValidos,
+    InformacoesCombate? ultimoCombate,
     String? erro,
     bool? conectando,
     String? nomeUsuario,
     StatusConexao? statusConexao,
     bool limparSelecao = false,
     bool limparErro = false,
+    bool limparCombate = false,
   }) {
     return TelaJogoState(
       estadoJogo: estadoJogo ?? this.estadoJogo,
@@ -57,6 +78,7 @@ class TelaJogoState {
       movimentosValidos: limparSelecao
           ? const []
           : movimentosValidos ?? this.movimentosValidos,
+      ultimoCombate: limparCombate ? null : ultimoCombate ?? this.ultimoCombate,
       erro: limparErro ? null : erro ?? this.erro,
       conectando: conectando ?? this.conectando,
       nomeUsuario: nomeUsuario ?? this.nomeUsuario,
@@ -100,8 +122,20 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
       // Configura os listeners antes de conectar
       socketService.streamDeEstados.listen((novoEstado) {
+        // Detecta combates comparando estados
+        final combate = _detectarCombate(state.estadoJogo, novoEstado);
+
+        // Debug: Log se detectou combate
+        if (combate != null) {
+          print(
+            '🔥 COMBATE DETECTADO: ${combate.atacante.patente.nome} vs ${combate.defensor.patente.nome}',
+          );
+          print('🏆 Vencedor: ${combate.vencedor?.patente.nome ?? "EMPATE"}');
+        }
+
         state = state.copyWith(
           estadoJogo: novoEstado,
+          ultimoCombate: combate,
           conectando: false,
           statusConexao: StatusConexao.jogando,
           limparErro: true,
@@ -224,7 +258,14 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
   /// Envia a intenção de movimento para o servidor.
   void moverPeca(PosicaoTabuleiro novaPosicao) {
-    if (state.idPecaSelecionada == null) return;
+    if (state.idPecaSelecionada == null) {
+      print('❌ Tentativa de mover peça sem seleção');
+      return;
+    }
+
+    print(
+      '🎯 Movendo peça ${state.idPecaSelecionada} para posição (${novaPosicao.linha}, ${novaPosicao.coluna})',
+    );
 
     // A responsabilidade agora é apenas notificar o servidor.
     _ref
@@ -252,6 +293,145 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
   /// Tenta reconectar ao servidor
   void reconnect() {
     _reconnectAsync();
+  }
+
+  /// Detecta se houve um combate comparando dois estados do jogo
+  InformacoesCombate? _detectarCombate(
+    EstadoJogo? estadoAnterior,
+    EstadoJogo novoEstado,
+  ) {
+    if (estadoAnterior == null) return null;
+
+    print('🔍 Verificando combate...');
+    print('📊 Peças antes: ${estadoAnterior.pecas.length}');
+    print('📊 Peças depois: ${novoEstado.pecas.length}');
+
+    // Estratégia mais simples: detectar peças que foram removidas
+    final pecasRemovidas = estadoAnterior.pecas
+        .where(
+          (pecaAnterior) => !novoEstado.pecas.any(
+            (pecaNova) => pecaNova.id == pecaAnterior.id,
+          ),
+        )
+        .toList();
+
+    // Detectar peças que se moveram
+    final pecasMovidas = <PecaJogo>[];
+    for (final pecaNova in novoEstado.pecas) {
+      final pecaAnterior = estadoAnterior.pecas
+          .where((p) => p.id == pecaNova.id)
+          .firstOrNull;
+      if (pecaAnterior != null &&
+          (pecaAnterior.posicao.linha != pecaNova.posicao.linha ||
+              pecaAnterior.posicao.coluna != pecaNova.posicao.coluna)) {
+        pecasMovidas.add(pecaAnterior);
+      }
+    }
+
+    print('🗑️ Peças removidas: ${pecasRemovidas.length}');
+    print('🏃 Peças movidas: ${pecasMovidas.length}');
+
+    // Se houve peças removidas, provavelmente houve combate
+    if (pecasRemovidas.isNotEmpty) {
+      // Tenta identificar o atacante (peça que se moveu)
+      final atacante = pecasMovidas.isNotEmpty ? pecasMovidas.first : null;
+
+      // Encontra a nova posição do atacante
+      final atacanteNovo = atacante != null
+          ? novoEstado.pecas.where((p) => p.id == atacante.id).firstOrNull
+          : null;
+
+      if (atacante != null && atacanteNovo != null) {
+        // Verifica se havia uma peça na posição de destino
+        final defensor = estadoAnterior.pecas
+            .where(
+              (p) =>
+                  p.posicao.linha == atacanteNovo.posicao.linha &&
+                  p.posicao.coluna == atacanteNovo.posicao.coluna &&
+                  p.id != atacante.id,
+            )
+            .firstOrNull;
+
+        if (defensor != null) {
+          // Determina o vencedor
+          PecaJogo? vencedor;
+          if (novoEstado.pecas.any((p) => p.id == atacante.id)) {
+            vencedor = atacante;
+          } else if (novoEstado.pecas.any((p) => p.id == defensor.id)) {
+            vencedor = defensor;
+          }
+          // Se nenhum dos dois está no novo estado, foi empate
+
+          print(
+            '⚔️ COMBATE: ${atacante.patente.nome} vs ${defensor.patente.nome}',
+          );
+          print('🏆 Vencedor: ${vencedor?.patente.nome ?? "EMPATE"}');
+
+          return InformacoesCombate(
+            atacante: atacante,
+            defensor: defensor,
+            vencedor: vencedor,
+            foiEmpate: vencedor == null,
+            posicaoCombate: atacanteNovo.posicao,
+          );
+        }
+      } else if (pecasRemovidas.isNotEmpty) {
+        // Fallback: Se não conseguiu identificar atacante, usa as peças removidas
+        print('🔄 Tentando identificar combate pelas peças removidas');
+
+        if (pecasRemovidas.length >= 2) {
+          // Empate - ambas removidas
+          final atacante = pecasRemovidas[0];
+          final defensor = pecasRemovidas[1];
+
+          print(
+            '⚔️ COMBATE (EMPATE): ${atacante.patente.nome} vs ${defensor.patente.nome}',
+          );
+
+          return InformacoesCombate(
+            atacante: atacante,
+            defensor: defensor,
+            vencedor: null,
+            foiEmpate: true,
+            posicaoCombate: atacante.posicao,
+          );
+        } else if (pecasRemovidas.length == 1) {
+          // Uma peça foi removida - precisa identificar o atacante
+          final defensor = pecasRemovidas[0];
+
+          // Procura por uma peça que agora está na posição do defensor
+          final atacante = novoEstado.pecas
+              .where(
+                (p) =>
+                    p.posicao.linha == defensor.posicao.linha &&
+                    p.posicao.coluna == defensor.posicao.coluna,
+              )
+              .firstOrNull;
+
+          if (atacante != null) {
+            print(
+              '⚔️ COMBATE: ${atacante.patente.nome} vs ${defensor.patente.nome}',
+            );
+            print('🏆 Vencedor: ${atacante.patente.nome}');
+
+            return InformacoesCombate(
+              atacante: atacante,
+              defensor: defensor,
+              vencedor: atacante,
+              foiEmpate: false,
+              posicaoCombate: defensor.posicao,
+            );
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /// Limpa as informações do último combate
+  void limparCombate() {
+    state = state.copyWith(limparCombate: true);
   }
 
   /// Volta para o estado de aguardando oponente após desconexão

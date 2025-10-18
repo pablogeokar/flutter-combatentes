@@ -121,7 +121,15 @@ class TabuleiroWidget extends StatelessWidget {
       ehDoJogadorAtual: ehDoJogadorLocal,
       ehVezDoJogadorLocal: ehVezDoJogadorLocal,
       ehMovimentoValido: ehMovimentoValido,
-      onPecaTap: onPecaTap,
+      onPecaTap: (idPeca) {
+        // Se é uma peça inimiga atacável, trata como movimento
+        if (ehMovimentoValido && !ehDoJogadorLocal) {
+          onPosicaoTap(posicao);
+        } else {
+          // Caso contrário, trata como seleção normal
+          onPecaTap(idPeca);
+        }
+      },
       cellSize: cellSize,
     );
   }
