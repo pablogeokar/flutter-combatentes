@@ -1,7 +1,7 @@
-import express from 'express';
-import http from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
-import { v4 as uuidv4 } from 'uuid';
+import express from "express";
+import http from "http";
+import { WebSocketServer, WebSocket } from "ws";
+import { v4 as uuidv4 } from "uuid";
 
 // -----------------------------------------------------------------------------
 // 1. RE-IMPLEMENTAÇÃO DOS MODELOS DE DADOS (DART -> TYPESCRIPT)
@@ -39,7 +39,7 @@ interface PosicaoTabuleiro {
 
 interface PecaJogo {
   id: string;
-  patente: Patente;
+  patente: string; // Apenas o ID da patente para compatibilidade com Flutter
   equipe: Equipe;
   posicao: PosicaoTabuleiro;
   foiRevelada: boolean;
@@ -171,10 +171,7 @@ class GameControllerServer {
     novaPosicao: PosicaoTabuleiro,
     pecas: PecaJogo[]
   ): string | null {
-    if (
-      peca.patente.id === "minaTerrestre" ||
-      peca.patente.id === "prisioneiro"
-    )
+    if (peca.patente === "minaTerrestre" || peca.patente === "prisioneiro")
       return "Esta peça não pode se mover.";
     if (
       peca.posicao.linha === novaPosicao.linha &&
@@ -204,11 +201,11 @@ class GameControllerServer {
     const distancia =
       Math.abs(peca.posicao.linha - novaPosicao.linha) +
       Math.abs(peca.posicao.coluna - novaPosicao.coluna);
-    if (peca.patente.id !== "soldado" && distancia > 1)
+    if (peca.patente !== "soldado" && distancia > 1)
       return "Esta peça só pode se mover uma casa por vez.";
 
     // Validação de caminho livre para o soldado (simplificada para o exemplo)
-    if (peca.patente.id === "soldado" && distancia > 1) {
+    if (peca.patente === "soldado" && distancia > 1) {
       // Uma implementação real verificaria as casas intermediárias
     }
 
@@ -219,19 +216,20 @@ class GameControllerServer {
     atacante: PecaJogo,
     defendida: PecaJogo
   ): { vencedor: PecaJogo | null; perdedor: PecaJogo | null } {
-    if (
-      atacante.patente.id === "agenteSecreto" &&
-      defendida.patente.id === "general"
-    )
+    if (atacante.patente === "agenteSecreto" && defendida.patente === "general")
       return { vencedor: atacante, perdedor: defendida };
-    if (defendida.patente.id === "minaTerrestre") {
-      return atacante.patente.id === "cabo"
+    if (defendida.patente === "minaTerrestre") {
+      return atacante.patente === "cabo"
         ? { vencedor: atacante, perdedor: defendida }
         : { vencedor: defendida, perdedor: atacante };
     }
-    if (atacante.patente.forca > defendida.patente.forca)
+
+    const forcaAtacante = Patentes[atacante.patente]?.forca || 0;
+    const forcaDefendida = Patentes[defendida.patente]?.forca || 0;
+
+    if (forcaAtacante > forcaDefendida)
       return { vencedor: atacante, perdedor: defendida };
-    if (defendida.patente.forca > atacante.patente.forca)
+    if (forcaDefendida > forcaAtacante)
       return { vencedor: defendida, perdedor: atacante };
     return { vencedor: null, perdedor: null }; // Empate
   }
@@ -243,7 +241,7 @@ class GameControllerServer {
     const equipeAdversaria =
       jogadorQueMoveu.equipe === Equipe.Preta ? Equipe.Verde : Equipe.Preta;
     const prisioneiroAdversario = estado.pecas.find(
-      (p) => p.patente.id === "prisioneiro" && p.equipe === equipeAdversaria
+      (p) => p.patente === "prisioneiro" && p.equipe === equipeAdversaria
     );
 
     if (!prisioneiroAdversario) {
@@ -253,8 +251,8 @@ class GameControllerServer {
     const pecasMoveisAdversarias = estado.pecas.some(
       (p) =>
         p.equipe === equipeAdversaria &&
-        p.patente.id !== "minaTerrestre" &&
-        p.patente.id !== "prisioneiro"
+        p.patente !== "minaTerrestre" &&
+        p.patente !== "prisioneiro"
     );
     if (!pecasMoveisAdversarias) {
       return { ...estado, jogoTerminou: true, idVencedor: jogadorQueMoveu.id };
@@ -381,75 +379,93 @@ wss.on("connection", (ws: WebSocket) => {
 });
 
 function broadcastGameState(session: GameSession) {
-    // O tipo `EstadoJogo` já omite a propriedade `ws`, então a remapeamento é desnecessário.
-    const estadoParaCliente = session.estadoJogo;
-    const message = JSON.stringify({ type: 'atualizacaoEstado', payload: estadoParaCliente });
-    session.jogadores.forEach(player => {
-        if (player.ws.readyState === WebSocket.OPEN) {
-            player.ws.send(message);
-        }
-    });
+  // O tipo `EstadoJogo` já omite a propriedade `ws`, então a remapeamento é desnecessário.
+  const estadoParaCliente = session.estadoJogo;
+  const message = JSON.stringify({
+    type: "atualizacaoEstado",
+    payload: estadoParaCliente,
+  });
+  session.jogadores.forEach((player) => {
+    if (player.ws.readyState === WebSocket.OPEN) {
+      player.ws.send(message);
+    }
+  });
 }
 
 function findGameByPlayerId(clientId: string): GameSession | undefined {
-    for (const session of activeGames.values()) {
-        if (session.jogadores.some(j => j.id === clientId)) {
-            return session;
-        }
+  for (const session of activeGames.values()) {
+    if (session.jogadores.some((j) => j.id === clientId)) {
+      return session;
     }
-    return undefined;
+  }
+  return undefined;
 }
 
-function createInitialGameState(gameId: string, p1: Omit<Jogador, 'ws'>, p2: Omit<Jogador, 'ws'>): EstadoJogo {
-    // A lógica de criação de peças é a mesma do cliente, adaptada para TS
-    const pecas: PecaJogo[] = [];
-    const contagemPecas: { [key: string]: number } = {
-      general: 1, coronel: 1, major: 2, capitao: 3, tenente: 4, sargento: 4,
-      cabo: 4, soldado: 5, agenteSecreto: 1, prisioneiro: 1, minaTerrestre: 6,
-    };
+function createInitialGameState(
+  gameId: string,
+  p1: Omit<Jogador, "ws">,
+  p2: Omit<Jogador, "ws">
+): EstadoJogo {
+  // A lógica de criação de peças é a mesma do cliente, adaptada para TS
+  const pecas: PecaJogo[] = [];
+  const contagemPecas: { [key: string]: number } = {
+    general: 1,
+    coronel: 1,
+    major: 2,
+    capitao: 3,
+    tenente: 4,
+    sargento: 4,
+    cabo: 4,
+    soldado: 5,
+    agenteSecreto: 1,
+    prisioneiro: 1,
+    minaTerrestre: 6,
+  };
 
-    let posicoesPretas: PosicaoTabuleiro[] = [];
-    for (let i = 0; i < 4; i++) for (let j = 0; j < 10; j++) posicoesPretas.push({ linha: i, coluna: j });
-    posicoesPretas.sort(() => Math.random() - 0.5);
+  let posicoesPretas: PosicaoTabuleiro[] = [];
+  for (let i = 0; i < 4; i++)
+    for (let j = 0; j < 10; j++) posicoesPretas.push({ linha: i, coluna: j });
+  posicoesPretas.sort(() => Math.random() - 0.5);
 
-    let posIndexPreto = 0;
-    for (const key in contagemPecas) {
-        for (let i = 0; i < contagemPecas[key]!; i++) {
-            pecas.push({
-                id: `preta_${key}_${i}`,
-                patente: Patentes[key]!,
-                equipe: Equipe.Preta,
-                posicao: posicoesPretas[posIndexPreto++]!,
-                foiRevelada: false,
-            });
-        }
+  let posIndexPreto = 0;
+  for (const key in contagemPecas) {
+    for (let i = 0; i < contagemPecas[key]!; i++) {
+      pecas.push({
+        id: `preta_${key}_${i}`,
+        patente: key, // Apenas o ID da patente
+        equipe: Equipe.Preta,
+        posicao: posicoesPretas[posIndexPreto++]!,
+        foiRevelada: false,
+      });
     }
+  }
 
-    let posicoesVerdes: PosicaoTabuleiro[] = [];
-    for (let i = 6; i < 10; i++) for (let j = 0; j < 10; j++) posicoesVerdes.push({ linha: i, coluna: j });
-    posicoesVerdes.sort(() => Math.random() - 0.5);
-    
-    let posIndexVerde = 0;
-    for (const key in contagemPecas) {
-        for (let i = 0; i < contagemPecas[key]!; i++) {
-            pecas.push({
-                id: `verde_${key}_${i}`,
-                patente: Patentes[key]!,
-                equipe: Equipe.Verde,
-                posicao: posicoesVerdes[posIndexVerde++]!,
-                foiRevelada: false,
-            });
-        }
+  let posicoesVerdes: PosicaoTabuleiro[] = [];
+  for (let i = 6; i < 10; i++)
+    for (let j = 0; j < 10; j++) posicoesVerdes.push({ linha: i, coluna: j });
+  posicoesVerdes.sort(() => Math.random() - 0.5);
+
+  let posIndexVerde = 0;
+  for (const key in contagemPecas) {
+    for (let i = 0; i < contagemPecas[key]!; i++) {
+      pecas.push({
+        id: `verde_${key}_${i}`,
+        patente: key, // Apenas o ID da patente
+        equipe: Equipe.Verde,
+        posicao: posicoesVerdes[posIndexVerde++]!,
+        foiRevelada: false,
+      });
     }
+  }
 
-    return {
-        idPartida: gameId,
-        jogadores: [p1, p2],
-        pecas: pecas,
-        idJogadorDaVez: p1.id,
-        jogoTerminou: false,
-        idVencedor: null,
-    };
+  return {
+    idPartida: gameId,
+    jogadores: [p1, p2],
+    pecas: pecas,
+    idJogadorDaVez: p1.id,
+    jogoTerminou: false,
+    idVencedor: null,
+  };
 }
 
 server.listen(PORT, () => {

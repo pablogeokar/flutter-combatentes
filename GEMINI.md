@@ -29,27 +29,15 @@ O projeto utiliza uma arquitetura Cliente-Servidor:
   - `{ "type": "erroMovimento", "payload": { "mensagem": "..." } }`: Envia uma mensagem de erro apenas para o jogador que fez uma jogada inválida.
   - `{ "type": "mensagemServidor", "payload": "..." }`: Envia mensagens informativas (ex: aguardando jogador).
 
-## 3. Detalhes do Cliente (Frontend - Flutter)
+## 4. Histórico de Decisões e Depuração
 
-- **Linguagem:** Dart
-- **Gerenciamento de Estado:** `flutter_riverpod`
-- **Convenção:** Comentários de código e textos da UI estão em Português do Brasil (pt-BR).
+Esta seção documenta decisões arquiteturais e bugs importantes que foram encontrados e corrigidos.
 
-### Estrutura e Arquivos Principais:
+- **Pivô do Servidor para JavaScript Puro:** A implementação inicial do servidor foi planejada em TypeScript (`server.ts`). No entanto, devido a erros de compilação persistentes e difíceis de diagnosticar relacionados à configuração de módulos do `ts-node` no ambiente, a abordagem foi alterada. Para garantir a estabilidade e funcionalidade, o servidor foi reescrito em JavaScript puro (`server.js`), eliminando a etapa de compilação e resolvendo os problemas.
 
-- **`main.dart`:** Ponto de entrada da aplicação. Configura o `ProviderScope` do Riverpod.
+- **Bug Crítico de Serialização de Dados:** O principal bug que impedia o cliente de sair da tela "Conectando..." era um erro de serialização silencioso. O servidor (`server.js`) enviava um JSON com uma estrutura incorreta:
+  1.  O campo `patente` era enviado como um objeto (`{id, forca, nome}`) em vez de uma string simples (ex: `"soldado"`).
+  2.  O campo `jogadores` continha o objeto circular e complexo da conexão WebSocket (`ws`).
+  O cliente Dart (`EstadoJogo.fromJson`) não conseguia processar essa estrutura, causando uma falha que não era reportada. O arquivo `server.js` foi corrigido para garantir que a estrutura do JSON enviado corresponda exatamente ao que o cliente espera.
 
-- **`modelos_jogo.dart`:** Contém todos os modelos de dados puros (`EstadoJogo`, `PecaJogo`, `Jogador`, etc.). As classes são imutáveis e preparadas para serialização JSON com `json_serializable`.
-
-- **`game_socket_service.dart`:** Encapsula toda a lógica de comunicação com o WebSocket. Expõe `Streams` para receber atualizações de estado e erros do servidor.
-
-- **`providers.dart`:** Arquivo central do Riverpod.
-  - `gameSocketProvider`: Fornece a instância do `GameSocketService`.
-  - `gameStateProvider`: Um `StateNotifierProvider` que gerencia o estado da UI (`TelaJogoState`).
-    - O `GameStateNotifier` **não contém lógica de jogo**. Ele ouve o `streamDeEstados` do `GameSocketService` e atualiza seu estado quando o servidor envia uma atualização.
-    - Ações do usuário (como `moverPeca`) apenas encaminham a intenção para o `GameSocketService`, que a envia para o servidor.
-
-- **`lib/ui/`:** Contém os widgets da interface do usuário.
-  - **`tela_jogo.dart`:** A tela principal. É um `ConsumerWidget` que reage às mudanças do `gameStateProvider`. Exibe um indicador de carregamento enquanto se conecta ao servidor.
-  - **`tabuleiro_widget.dart`:** Renderiza o tabuleiro 10x10 e as peças com base no `EstadoJogo` atual.
-  - **`peca_widget.dart`:** Renderiza uma única peça, com diferentes visuais para peça selecionada, oculta ou revelada.
+- **Melhora na Depuração do Cliente:** Para diagnosticar o bug acima, o arquivo `game_socket_service.dart` foi modificado para incluir um bloco `try-catch` robusto, capaz de capturar e imprimir no console qualquer erro que ocorra durante o processamento das mensagens recebidas do servidor.
