@@ -1,40 +1,19 @@
 {
   "compilerOptions": {
-    // File Layout
-    "rootDir": ".",
-    "outDir": "dist",
-
-    // Environment Settings for Node.js
-    "target": "es2020",
-    "module": "commonjs",
-    "lib": ["es2020"],
-    "types": ["node"],
-
-    // Module Resolution
+    "target": "ES2022",
+    "module": "ESNext",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true,
-
-    // Output Options
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
-
-    // Type Checking
     "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-
-    // Advanced Options
     "skipLibCheck": true,
-    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
+    "sourceMap": true,
     "resolveJsonModule": true
   },
-  "include": ["*.ts", "**/*.ts"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

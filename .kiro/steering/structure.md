@@ -32,11 +32,21 @@ lib/
 
 ```
 server/
-├── server.ts               # Main WebSocket server implementation
-├── server.js               # Compiled JavaScript (if present)
-├── package.json            # Node.js dependencies
-├── pnpm-lock.yaml          # Package lock file
-└── tsconfig.json           # TypeScript configuration
+├── src/
+│   ├── types/
+│   │   └── game.types.ts          # Type definitions and interfaces
+│   ├── game/
+│   │   ├── GameController.ts      # Core game logic and rules
+│   │   └── GameStateManager.ts    # Game state initialization
+│   ├── websocket/
+│   │   ├── GameSessionManager.ts  # Session and connection management
+│   │   └── WebSocketMessageHandler.ts # Message processing
+│   └── server.ts                  # Application entry point
+├── dist/                          # Compiled JavaScript output
+├── package.json                   # Node.js dependencies
+├── pnpm-lock.yaml                 # Package lock file
+├── tsconfig.json                  # TypeScript configuration
+└── README.md                      # Server documentation
 ```
 
 ## Key File Responsibilities
@@ -63,12 +73,14 @@ server/
 - `GameStateNotifier`: Riverpod state notifier
 - WebSocket integration for real-time updates
 
-### Server (`server.ts`)
+### Server (Modular Architecture)
 
-- Authoritative game state management
-- Player matchmaking and session handling
-- Real-time message broadcasting
-- Duplicate game logic for server-side validation
+- **Types (`game.types.ts`)**: Shared TypeScript interfaces and enums
+- **GameController**: Pure game logic, movement validation, combat resolution
+- **GameStateManager**: Initial game state creation and piece placement
+- **GameSessionManager**: Player matchmaking, connection handling, session lifecycle
+- **WebSocketMessageHandler**: Message parsing, routing, and error handling
+- **Server Entry Point**: Express server setup, WebSocket configuration
 
 ## Naming Conventions
 
