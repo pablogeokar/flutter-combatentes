@@ -195,6 +195,19 @@ This document outlines the most important features and bug fixes that are essent
 - **Responsive Design**: Adaptive layouts that work across different screen sizes
 - **Visual Cohesion**: Unified design language from splash screen through gameplay interface
 
+### Victory and Defeat Screens
+
+**Implementation**: Immersive end-game experience with custom illustrations
+
+- **Victory Screen**: Celebratory design with victory illustration (vitoria.png) and congratulatory messaging
+- **Defeat Screen**: Encouraging design with defeat illustration (derrota.png) and motivational messaging
+- **Animated Transitions**: Smooth scale and fade animations with elastic effects for victory
+- **Audio Integration**: Automatic victory/defeat sound playback synchronized with screen appearance
+- **Action Buttons**: "Play Again" and "Main Menu" options with military styling
+- **Personalized Messages**: Player name integration in congratulatory/encouraging text
+- **Professional Layout**: Large logo integration and consistent military theme
+- **Navigation Flow**: Seamless transitions between game end and restart/menu options
+
 ## 🔧 Development Guidelines
 
 ### When Adding New Features

@@ -28,6 +28,7 @@ lib/
 └── ui/                     # UI components and screens
     ├── tela_jogo.dart      # Main game screen
     ├── tela_nome_usuario.dart # User name input screen
+    ├── victory_defeat_screens.dart # End-game celebration screens
     ├── animated_board_widget.dart # Advanced animation system
     ├── piece_movement_widget.dart # Individual piece animations
     ├── explosion_widget.dart      # Combat visual effects
@@ -127,6 +128,7 @@ server/
   - Professional UI with clear visual feedback
 
 - **`military_theme_widgets.dart`**: Comprehensive military UI component library
+
   - Textured background containers with camouflage pattern
   - Military-styled cards with proper borders and shadows
   - Themed buttons with consistent styling and loading states
@@ -134,7 +136,17 @@ server/
   - Military-themed dialogs with proper branding
   - Styled text fields with military color scheme
   - Status indicators and loading components
+  - Large logo components for special screens
   - Reusable components for consistent visual design
+
+- **`victory_defeat_screens.dart`**: End-game celebration and encouragement screens
+  - Animated victory screen with custom illustration and celebratory effects
+  - Motivational defeat screen with encouraging messaging
+  - Smooth animation controllers with elastic and fade transitions
+  - Audio integration for victory/defeat sound effects
+  - Action buttons for game restart and menu navigation
+  - Personalized messaging with player name integration
+  - Professional military theme consistency
 
 ### Server (Modular Architecture)
 

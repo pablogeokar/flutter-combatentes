@@ -153,8 +153,8 @@ assets/images/
 ├── bg.png               # Camouflage texture background
 ├── board_background.png  # Game board texture
 ├── tela_inicial.png     # Legacy background (replaced by bg.png)
-├── vitoria.png          # Victory screen graphics
-├── derrota.png          # Defeat screen graphics
+├── vitoria.png          # Victory celebration illustration
+├── derrota.png          # Defeat encouragement illustration
 └── pecas/               # Game piece images directory
 ```
 

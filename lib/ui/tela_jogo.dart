@@ -8,6 +8,7 @@ import './animated_board_widget.dart';
 import './tela_nome_usuario.dart';
 import './explosion_widget.dart';
 import './audio_settings_dialog.dart';
+import './victory_defeat_screens.dart';
 
 /// A tela principal do jogo, agora como um ConsumerStatefulWidget que reage às mudanças de estado do Riverpod.
 class TelaJogo extends ConsumerStatefulWidget {
@@ -201,6 +202,7 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
                   ],
                 ),
               ),
+
               PopupMenuItem(
                 value: 'disconnect',
                 child: Row(
@@ -765,6 +767,7 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
       case 'clear_name':
         _showClearNameDialog(context, ref);
         break;
+
       case 'disconnect':
         _showDisconnectDialog(context, ref);
         break;
@@ -776,6 +779,38 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     showDialog(
       context: context,
       builder: (context) => const AudioSettingsDialog(),
+    );
+  }
+
+  /// Testa a tela de vitória
+  void _testVictoryScreen(BuildContext context, WidgetRef ref) {
+    final nomeUsuario = ref.read(gameStateProvider).nomeUsuario ?? 'Jogador';
+    _audioService.stopBackgroundMusic();
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => VictoryScreen(
+          playerName: nomeUsuario,
+          onPlayAgain: () => Navigator.of(context).pop(),
+          onMainMenu: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+  }
+
+  /// Testa a tela de derrota
+  void _testDefeatScreen(BuildContext context, WidgetRef ref) {
+    final nomeUsuario = ref.read(gameStateProvider).nomeUsuario ?? 'Jogador';
+    _audioService.stopBackgroundMusic();
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => DefeatScreen(
+          playerName: nomeUsuario,
+          onPlayAgain: () => Navigator.of(context).pop(),
+          onMainMenu: () => Navigator.of(context).pop(),
+        ),
+      ),
     );
   }
 
@@ -1037,7 +1072,7 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     }
   }
 
-  /// Mostra um diálogo de fim de jogo.
+  /// Navega para a tela de fim de jogo (vitória ou derrota).
   void _mostrarDialogoFimDeJogo(
     BuildContext context,
     EstadoJogo estadoFinal,
@@ -1046,23 +1081,42 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     final vencedor = estadoFinal.jogadores.firstWhere(
       (j) => j.id == estadoFinal.idVencedor,
     );
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text("Fim de Jogo!"),
-        content: Text(
-          "O jogador ${vencedor.nome} (${vencedor.equipe.name}) venceu!",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text("OK"),
-          ),
-        ],
+
+    final nomeUsuario = ref.read(gameStateProvider).nomeUsuario ?? 'Jogador';
+    final ehVitoria = _isVezDoJogadorLocal(vencedor, nomeUsuario);
+
+    // Para a música de fundo antes de mostrar a tela de resultado
+    _audioService.stopBackgroundMusic();
+
+    // Navega para a tela apropriada
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => ehVitoria
+            ? VictoryScreen(
+                playerName: nomeUsuario,
+                onPlayAgain: () => _reiniciarJogo(context, ref),
+                onMainMenu: () => _voltarMenuPrincipal(context),
+              )
+            : DefeatScreen(
+                playerName: nomeUsuario,
+                onPlayAgain: () => _reiniciarJogo(context, ref),
+                onMainMenu: () => _voltarMenuPrincipal(context),
+              ),
       ),
+    );
+  }
+
+  /// Reinicia o jogo
+  void _reiniciarJogo(BuildContext context, WidgetRef ref) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const TelaJogo()),
+    );
+  }
+
+  /// Volta para o menu principal (tela de nome)
+  void _voltarMenuPrincipal(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const TelaNomeUsuario()),
     );
   }
 }
