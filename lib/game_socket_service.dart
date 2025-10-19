@@ -118,7 +118,7 @@ class GameSocketService {
 
         // Envia o nome do usuário assim que conecta
         if (nomeUsuario != null) {
-          Future.delayed(const Duration(milliseconds: 100), () {
+          Future.delayed(const Duration(milliseconds: 150), () {
             _sendMessage({
               'type': 'definirNome',
               'payload': {'nome': nomeUsuario},

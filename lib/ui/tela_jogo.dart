@@ -6,13 +6,21 @@ import '../providers.dart';
 import '../services/user_preferences.dart';
 import './tabuleiro_widget.dart';
 import './tela_nome_usuario.dart';
+import './explosion_widget.dart';
 
-/// A tela principal do jogo, agora como um ConsumerWidget que reage às mudanças de estado do Riverpod.
-class TelaJogo extends ConsumerWidget {
+/// A tela principal do jogo, agora como um ConsumerStatefulWidget que reage às mudanças de estado do Riverpod.
+class TelaJogo extends ConsumerStatefulWidget {
   const TelaJogo({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TelaJogo> createState() => _TelaJogoState();
+}
+
+class _TelaJogoState extends ConsumerState<TelaJogo> {
+  final List<ExplosionOverlay> _explosions = [];
+
+  @override
+  Widget build(BuildContext context) {
     // Assiste a mudanças no estado do jogo.
     final uiState = ref.watch(gameStateProvider);
     final estadoJogo = uiState.estadoJogo;
@@ -176,9 +184,65 @@ class TelaJogo extends ConsumerWidget {
                 ),
               ),
             ),
+          // Explosões
+          ..._explosions,
         ],
       ),
     );
+  }
+
+  /// Mostra o efeito de explosão na posição especificada
+  void _showExplosionEffect(PosicaoTabuleiro posicao) {
+    debugPrint(
+      '💥 Iniciando efeito de explosão na posição (${posicao.linha}, ${posicao.coluna})',
+    );
+
+    // Calcula a posição da explosão baseada na posição da peça no tabuleiro
+    final screenSize = MediaQuery.of(context).size;
+
+    // Calcula o tamanho do tabuleiro (AspectRatio 1:1 centralizado)
+    final availableHeight =
+        screenSize.height - kToolbarHeight - MediaQuery.of(context).padding.top;
+    final boardSize = screenSize.width < availableHeight
+        ? screenSize.width * 0.95
+        : availableHeight * 0.95;
+    final cellSize = boardSize / 10;
+
+    // Posição do centro da tela (considerando o AppBar)
+    final centerX = screenSize.width / 2;
+    final centerY =
+        kToolbarHeight +
+        MediaQuery.of(context).padding.top +
+        availableHeight / 2;
+
+    // Offset da posição da peça no tabuleiro (0,0 é canto superior esquerdo)
+    final offsetX = (posicao.coluna - 4.5) * cellSize;
+    final offsetY = (posicao.linha - 4.5) * cellSize;
+
+    final explosionX =
+        centerX + offsetX - 60; // 60 é metade do tamanho da explosão
+    final explosionY = centerY + offsetY - 60;
+
+    debugPrint('📊 Explosão calculada em: ($explosionX, $explosionY)');
+
+    late ExplosionOverlay explosion;
+    explosion = ExplosionOverlay(
+      left: explosionX,
+      top: explosionY,
+      onComplete: () {
+        if (mounted) {
+          setState(() {
+            _explosions.removeWhere((e) => e == explosion);
+          });
+        }
+      },
+    );
+
+    if (mounted) {
+      setState(() {
+        _explosions.add(explosion);
+      });
+    }
   }
 
   /// Mostra diálogo com o resultado do combate
@@ -187,6 +251,14 @@ class TelaJogo extends ConsumerWidget {
     InformacoesCombate combate,
     WidgetRef ref,
   ) {
+    // Verifica se houve explosão de mina terrestre
+    if (combate.defensor.patente == Patente.minaTerrestre &&
+        combate.atacante.patente != Patente.cabo) {
+      debugPrint(
+        '💥 EXPLOSÃO! ${combate.atacante.patente.nome} atacou Mina Terrestre',
+      );
+      _showExplosionEffect(combate.posicaoCombate);
+    }
     final bool ehMeuAtacante = _isMinhaEquipe(
       combate.atacante,
       ref.read(gameStateProvider).nomeUsuario,
