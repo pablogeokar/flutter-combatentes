@@ -431,31 +431,60 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
     }
 
     // ESTRATÉGIA ALTERNATIVA: Combate através de peças reveladas
-    if (pecasReveladas.isNotEmpty && pecasRemovidas.isNotEmpty) {
+    if (pecasReveladas.isNotEmpty) {
       debugPrint('🔍 Tentando identificar combate através de peças reveladas');
 
       for (final revelacao in pecasReveladas) {
         final pecaRevelada = revelacao['nova']!;
 
-        // Procura por uma peça removida na mesma posição ou próxima
-        for (final pecaRemovida in pecasRemovidas) {
-          final distancia =
-              (pecaRevelada.posicao.linha - pecaRemovida.posicao.linha).abs() +
-              (pecaRevelada.posicao.coluna - pecaRemovida.posicao.coluna).abs();
+        // CASO ESPECIAL: Mina terrestre revelada = foi atacada
+        if (pecaRevelada.patente == Patente.minaTerrestre &&
+            pecasRemovidas.isNotEmpty) {
+          debugPrint('💣 MINA TERRESTRE REVELADA - foi atacada!');
 
-          if (distancia <= 1) {
+          // Procura o atacante removido
+          final atacanteRemovido = pecasRemovidas.firstOrNull;
+          if (atacanteRemovido != null) {
             debugPrint(
-              '🎯 COMBATE IDENTIFICADO via revelação: ${pecaRevelada.patente.nome} vs ${pecaRemovida.patente.nome}',
+              '🎯 COMBATE IDENTIFICADO: ${atacanteRemovido.patente.nome} atacou Mina Terrestre',
             );
 
-            // A peça revelada ainda existe, então ela venceu
+            // Verifica se foi cabo (desativa mina) ou outra peça (explode)
+            final caboDesativou = atacanteRemovido.patente == Patente.cabo;
+
             return InformacoesCombate(
-              atacante: pecaRevelada,
-              defensor: pecaRemovida,
-              vencedor: pecaRevelada,
+              atacante: atacanteRemovido,
+              defensor: pecaRevelada,
+              vencedor: caboDesativou ? atacanteRemovido : pecaRevelada,
               foiEmpate: false,
-              posicaoCombate: pecaRemovida.posicao,
+              posicaoCombate: pecaRevelada.posicao,
             );
+          }
+        }
+
+        // Procura por uma peça removida na mesma posição ou próxima
+        if (pecasRemovidas.isNotEmpty) {
+          for (final pecaRemovida in pecasRemovidas) {
+            final distancia =
+                (pecaRevelada.posicao.linha - pecaRemovida.posicao.linha)
+                    .abs() +
+                (pecaRevelada.posicao.coluna - pecaRemovida.posicao.coluna)
+                    .abs();
+
+            if (distancia <= 1) {
+              debugPrint(
+                '🎯 COMBATE IDENTIFICADO via revelação: ${pecaRevelada.patente.nome} vs ${pecaRemovida.patente.nome}',
+              );
+
+              // A peça revelada ainda existe, então ela venceu
+              return InformacoesCombate(
+                atacante: pecaRevelada,
+                defensor: pecaRemovida,
+                vencedor: pecaRevelada,
+                foiEmpate: false,
+                posicaoCombate: pecaRemovida.posicao,
+              );
+            }
           }
         }
       }
