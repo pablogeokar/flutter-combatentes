@@ -24,11 +24,13 @@ lib/
 ├── game_controller.dart    # Game logic and rules engine
 ├── game_socket_service.dart # WebSocket client service
 ├── providers.dart          # Riverpod state management
+├── audio_service.dart      # Comprehensive audio management system
 └── ui/                     # UI components and screens
     ├── tela_jogo.dart      # Main game screen
     ├── animated_board_widget.dart # Advanced animation system
     ├── piece_movement_widget.dart # Individual piece animations
-    └── explosion_widget.dart      # Combat visual effects
+    ├── explosion_widget.dart      # Combat visual effects
+    └── audio_settings_dialog.dart # Audio configuration interface
 ```
 
 ## Server Structure (`server/`)
@@ -109,10 +111,17 @@ server/
   - Integration with board coordinate system
 
 - **`explosion_widget.dart`**: Combat visual effects system
+
   - Animated explosion effects for combat resolution
   - Particle system for debris and smoke effects
   - Configurable animation duration and intensity
   - Integration with combat detection system
+
+- **`audio_settings_dialog.dart`**: Audio configuration interface
+  - Toggle controls for background music and sound effects
+  - Test buttons for all audio types (turn, combat, explosion)
+  - Real-time audio control without app restart
+  - Professional UI with clear visual feedback
 
 ### Server (Modular Architecture)
 

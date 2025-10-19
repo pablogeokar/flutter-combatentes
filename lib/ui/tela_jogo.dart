@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../modelos_jogo.dart';
 import '../providers.dart';
 import '../services/user_preferences.dart';
-import './tabuleiro_widget.dart';
+import '../audio_service.dart';
 import './animated_board_widget.dart';
 import './tela_nome_usuario.dart';
 import './explosion_widget.dart';
+import './audio_settings_dialog.dart';
 
 /// A tela principal do jogo, agora como um ConsumerStatefulWidget que reage às mudanças de estado do Riverpod.
 class TelaJogo extends ConsumerStatefulWidget {
@@ -19,6 +19,21 @@ class TelaJogo extends ConsumerStatefulWidget {
 
 class _TelaJogoState extends ConsumerState<TelaJogo> {
   final List<ExplosionOverlay> _explosions = [];
+  final AudioService _audioService = AudioService();
+
+  @override
+  void initState() {
+    super.initState();
+    // Inicia a música de fundo quando entra no jogo
+    _audioService.playBackgroundMusic();
+  }
+
+  @override
+  void dispose() {
+    // Para a música quando sai do jogo
+    _audioService.stopBackgroundMusic();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +50,22 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
         _showOpponentDisconnectedDialog(context, ref);
       }
 
+      // Detecta mudança de turno e toca campainha se for a vez do jogador local
+      if (previous?.estadoJogo != null &&
+          next.estadoJogo != null &&
+          previous!.estadoJogo!.idJogadorDaVez !=
+              next.estadoJogo!.idJogadorDaVez) {
+        final jogadorDaVez = next.estadoJogo!.jogadores.firstWhere(
+          (j) => j.id == next.estadoJogo!.idJogadorDaVez,
+        );
+
+        // Verifica se é a vez do jogador local
+        if (_isVezDoJogadorLocal(jogadorDaVez, next.nomeUsuario)) {
+          debugPrint('🔔 É minha vez! Tocando campainha...');
+          _audioService.playTurnNotification();
+        }
+      }
+
       // Mostra resultado do combate
       if (next.ultimoCombate != null &&
           previous?.ultimoCombate != next.ultimoCombate) {
@@ -47,6 +78,9 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
           debugPrint('💥 MINA TERRESTRE DETECTADA - Mostrando explosão');
           _showExplosionEffect(next.ultimoCombate!.posicaoCombate);
 
+          // Toca som de explosão
+          _audioService.playExplosionSound();
+
           // Mostra o diálogo após um pequeno delay para a explosão ser visível
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
@@ -54,8 +88,30 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
             }
           });
         } else {
-          // Para outros combates, mostra o diálogo imediatamente
+          // Para outros combates, toca som de tiro e mostra o diálogo imediatamente
+          _audioService.playCombatSound();
           _showCombatResultDialog(context, next.ultimoCombate!, ref);
+        }
+      }
+
+      // Detecta fim de jogo e toca sons apropriados
+      if (next.estadoJogo?.idVencedor != null &&
+          previous?.estadoJogo?.idVencedor == null) {
+        final vencedorId = next.estadoJogo!.idVencedor!;
+        final jogadorVencedor = next.estadoJogo!.jogadores.firstWhere(
+          (j) => j.id == vencedorId,
+        );
+
+        // Verifica se o vencedor é o jogador local
+        final ehVitoria = _isVezDoJogadorLocal(
+          jogadorVencedor,
+          next.nomeUsuario,
+        );
+
+        if (ehVitoria) {
+          _audioService.playVictorySound();
+        } else {
+          _audioService.playDefeatSound();
         }
       }
 
@@ -108,6 +164,16 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
                     const Icon(Icons.edit, size: 20),
                     const SizedBox(width: 8),
                     Text('Alterar Nome'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'audio_settings',
+                child: Row(
+                  children: [
+                    const Icon(Icons.volume_up, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Configurações de Áudio'),
                   ],
                 ),
               ),
@@ -524,6 +590,19 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     return false;
   }
 
+  /// Verifica se é a vez do jogador local
+  bool _isVezDoJogadorLocal(Jogador jogadorDaVez, String? nomeUsuario) {
+    if (nomeUsuario == null) return false;
+
+    final nomeJogadorDaVez = jogadorDaVez.nome.trim().toLowerCase();
+    final nomeLocal = nomeUsuario.trim().toLowerCase();
+
+    // Busca exata ou parcial
+    return nomeJogadorDaVez == nomeLocal ||
+        nomeJogadorDaVez.contains(nomeLocal) ||
+        nomeLocal.contains(nomeJogadorDaVez);
+  }
+
   /// Mostra diálogo quando o oponente desconecta
   void _showOpponentDisconnectedDialog(BuildContext context, WidgetRef ref) {
     showDialog(
@@ -669,6 +748,9 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
       case 'change_name':
         _showChangeNameDialog(context, ref);
         break;
+      case 'audio_settings':
+        _showAudioSettingsDialog(context);
+        break;
       case 'clear_name':
         _showClearNameDialog(context, ref);
         break;
@@ -676,6 +758,14 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
         _showDisconnectDialog(context, ref);
         break;
     }
+  }
+
+  /// Mostra diálogo de configurações de áudio
+  void _showAudioSettingsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const AudioSettingsDialog(),
+    );
   }
 
   /// Mostra diálogo para alterar nome

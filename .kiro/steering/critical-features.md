@@ -169,6 +169,19 @@ This document outlines the most important features and bug fixes that are essent
 - **Strategic Bluffing**: Maintains core game mechanic of hidden information
 - **Visual Consistency**: Clear distinction between own pieces, revealed pieces, and hidden opponents
 
+### Comprehensive Audio System
+
+**Implementation**: Immersive audio experience with full user control
+
+- **Background Music**: Continuous trilha_sonora.wav loop during gameplay with volume control
+- **Turn Notifications**: campainha.wav plays when it's the local player's turn
+- **Combat Audio**: tiro.wav for regular combat encounters
+- **Explosion Effects**: explosao.wav for landmine encounters with visual synchronization
+- **Victory/Defeat Audio**: comemoracao.mp3 for wins, derrota_fim.wav for losses
+- **User Controls**: Complete audio settings dialog with music/sound toggles and test buttons
+- **Smart Detection**: Audio triggers based on game state changes and turn detection
+- **Performance Optimized**: Separate audio players for background music and sound effects
+
 ## 🔧 Development Guidelines
 
 ### When Adding New Features

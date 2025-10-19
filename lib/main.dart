@@ -1,10 +1,16 @@
 import 'package:combatentes/ui/tela_nome_usuario.dart';
 import 'package:combatentes/ui/tela_jogo.dart';
 import 'package:combatentes/services/user_preferences.dart';
+import 'package:combatentes/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Inicializar o serviço de áudio
+  await AudioService().initialize();
+
   // Envolve o aplicativo com ProviderScope para que os providers do Riverpod fiquem disponíveis.
   runApp(const ProviderScope(child: MyApp()));
 }

@@ -8,6 +8,7 @@
 - **WebSocket**: web_socket_channel ^2.4.0
 - **JSON Serialization**: json_annotation ^4.9.0 + json_serializable ^6.8.0
 - **Build Tool**: build_runner ^2.4.11 for code generation
+- **Audio**: audioplayers ^6.0.0 for comprehensive audio management
 
 ## Backend (Node.js)
 
@@ -105,3 +106,31 @@ pnpm run start
 - **Local Prediction**: Client-side movement validation for responsive UI
 - **Server Authority**: Authoritative combat resolution on server side
 - **Rollback Capability**: Client state correction when predictions are wrong
+
+## Audio System Architecture
+
+### AudioService Implementation
+
+- **Singleton Pattern**: Single AudioService instance managing all audio operations
+- **Dual Audio Players**: Separate players for background music (looped) and sound effects
+- **State Management**: Persistent audio preferences with real-time control
+- **Error Handling**: Graceful degradation when audio operations fail
+
+### Audio Integration Points
+
+- **Game State Listeners**: Audio triggers based on turn changes and combat detection
+- **User Interface**: Menu integration with settings dialog and test functionality
+- **Asset Management**: Organized audio assets in assets/sounds/ directory
+- **Platform Compatibility**: Cross-platform audio support with proper initialization
+
+### Audio Assets Structure
+
+```
+assets/sounds/
+├── trilha_sonora.wav      # Background music (looped)
+├── campainha.wav          # Turn notification sound
+├── tiro.wav              # Combat sound effect
+├── explosao.wav          # Mine explosion effect
+├── comemoracao.mp3       # Victory celebration
+└── derrota_fim.wav       # Defeat sound
+```

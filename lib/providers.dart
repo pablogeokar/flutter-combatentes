@@ -149,6 +149,9 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
         final combate = _detectarCombate(state.estadoJogo, novoEstado);
         final movimento = _detectarMovimento(state.estadoJogo, novoEstado);
 
+        // Detecta mudança de turno
+        final mudouTurno = _detectarMudancaTurno(state.estadoJogo, novoEstado);
+
         if (combate != null) {
           debugPrint(
             '🎯 COMBATE DETECTADO NO PROVIDER: ${combate.atacante.patente.nome} vs ${combate.defensor.patente.nome}',
@@ -161,6 +164,10 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
           debugPrint(
             '🔍 Nenhum combate ou movimento detectado nesta atualização',
           );
+        }
+
+        if (mudouTurno) {
+          debugPrint('🔔 MUDANÇA DE TURNO DETECTADA');
         }
 
         state = state.copyWith(
@@ -764,6 +771,17 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
     }
 
     return null;
+  }
+
+  /// Detecta se houve mudança de turno entre dois estados
+  bool _detectarMudancaTurno(
+    EstadoJogo? estadoAnterior,
+    EstadoJogo novoEstado,
+  ) {
+    if (estadoAnterior == null) return false;
+
+    // Verifica se o ID do jogador da vez mudou
+    return estadoAnterior.idJogadorDaVez != novoEstado.idJogadorDaVez;
   }
 
   /// Limpa as informações do último combate
