@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -29,7 +28,6 @@ class GameSocketService {
   /// Conecta-se ao servidor WebSocket e começa a ouvir por mensagens.
   void connect(String url, {String? nomeUsuario}) {
     if (_isConnecting) {
-      print('Já está tentando conectar, ignorando nova tentativa');
       return;
     }
 
@@ -80,7 +78,6 @@ class GameSocketService {
               final type = data['type'];
 
               if (type == 'atualizacaoEstado') {
-                print('DEBUG: Recebido estado do servidor.');
                 final estado = EstadoJogo.fromJson(data['payload']);
                 _estadoController.add(estado);
                 // Quando recebe estado do jogo, significa que está jogando
@@ -91,7 +88,6 @@ class GameSocketService {
                     'Erro desconhecido do servidor.';
                 _erroController.add(erro);
               } else if (type == 'mensagemServidor') {
-                print('Mensagem do Servidor: ${data['payload']}');
                 final mensagem = data['payload'].toString();
 
                 // Verifica se o oponente desconectou
@@ -105,23 +101,17 @@ class GameSocketService {
                   _statusController.add(StatusConexao.conectado);
                 }
               }
-            } catch (e, s) {
-              print('!!!!!! ERRO AO PROCESSAR MENSAGEM DO SERVIDOR !!!!!!');
-              print('DADOS BRUTOS: $message');
-              print('ERRO: $e');
-              print('STACK TRACE: $s');
+            } catch (e) {
               _erroController.add('Erro ao ler dados do servidor.');
             }
           },
           onError: (error) {
-            print('WebSocket Error: $error');
             _handleConnectionError(_getErrorMessage(error));
           },
           onDone: () {
             _connectionTimeout?.cancel();
             _isConnecting = false;
             _isConnected = false;
-            print('WebSocket connection closed');
             _statusController.add(StatusConexao.desconectado);
           },
         );
@@ -138,8 +128,6 @@ class GameSocketService {
       },
       (error, stackTrace) {
         // Captura TODAS as exceções não tratadas
-        print('Exceção capturada pelo runZonedGuarded: $error');
-        print('Stack trace: $stackTrace');
         _handleConnectionError(_getErrorMessage(error));
       },
     );
@@ -155,7 +143,7 @@ class GameSocketService {
     try {
       _channel?.sink.close();
     } catch (e) {
-      print('Erro ao fechar canal: $e');
+      // Ignora erros ao fechar canal
     }
     _channel = null;
 
@@ -185,7 +173,6 @@ class GameSocketService {
         _channel!.sink.add(jsonEncode(message));
       }
     } catch (e) {
-      print('Erro ao enviar mensagem: $e');
       _erroController.add('Erro ao enviar dados para o servidor.');
     }
   }
@@ -208,8 +195,6 @@ class GameSocketService {
 
   /// Reconecta ao servidor
   void reconnect(String url, {String? nomeUsuario}) {
-    print('Tentando reconectar...');
-
     // Cancela timeout anterior
     _connectionTimeout?.cancel();
     _isConnecting = false;
@@ -218,7 +203,7 @@ class GameSocketService {
     try {
       _channel?.sink.close();
     } catch (e) {
-      print('Erro ao fechar conexão anterior: $e');
+      // Ignora erros ao fechar conexão anterior
     }
 
     _channel = null;
@@ -237,7 +222,7 @@ class GameSocketService {
     try {
       _channel?.sink.close();
     } catch (e) {
-      print('Erro ao fechar canal: $e');
+      // Ignora erros ao fechar canal
     }
 
     _estadoController.close();

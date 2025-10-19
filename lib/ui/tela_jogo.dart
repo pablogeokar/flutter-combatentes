@@ -389,9 +389,6 @@ class TelaJogo extends ConsumerWidget {
                       peca.patente.imagePath,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) {
-                        print(
-                          'Erro ao carregar imagem no diálogo: ${peca.patente.imagePath}',
-                        );
                         return Icon(Icons.error, color: Colors.red, size: 30);
                       },
                     ),

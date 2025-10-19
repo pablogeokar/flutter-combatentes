@@ -125,13 +125,7 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
         // Detecta combates comparando estados
         final combate = _detectarCombate(state.estadoJogo, novoEstado);
 
-        // Debug: Log se detectou combate
-        if (combate != null) {
-          print(
-            '🔥 COMBATE DETECTADO: ${combate.atacante.patente.nome} vs ${combate.defensor.patente.nome}',
-          );
-          print('🏆 Vencedor: ${combate.vencedor?.patente.nome ?? "EMPATE"}');
-        }
+        // Detecta combates comparando estados
 
         state = state.copyWith(
           estadoJogo: novoEstado,
@@ -171,7 +165,6 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
             nomeUsuario: nomeUsuario,
           );
         } catch (e) {
-          print('Erro ao conectar: $e');
           state = state.copyWith(
             conectando: false,
             statusConexao: StatusConexao.erro,
@@ -180,7 +173,6 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
         }
       });
     } catch (e) {
-      print('Erro na inicialização: $e');
       state = state.copyWith(
         conectando: false,
         statusConexao: StatusConexao.erro,
@@ -279,13 +271,8 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
   /// Envia a intenção de movimento para o servidor.
   void moverPeca(PosicaoTabuleiro novaPosicao) {
     if (state.idPecaSelecionada == null) {
-      print('❌ Tentativa de mover peça sem seleção');
       return;
     }
-
-    print(
-      '🎯 Movendo peça ${state.idPecaSelecionada} para posição (${novaPosicao.linha}, ${novaPosicao.coluna})',
-    );
 
     // A responsabilidade agora é apenas notificar o servidor.
     _ref
@@ -322,10 +309,6 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
   ) {
     if (estadoAnterior == null) return null;
 
-    print('🔍 Verificando combate...');
-    print('📊 Peças antes: ${estadoAnterior.pecas.length}');
-    print('📊 Peças depois: ${novoEstado.pecas.length}');
-
     // Estratégia mais simples: detectar peças que foram removidas
     final pecasRemovidas = estadoAnterior.pecas
         .where(
@@ -348,8 +331,7 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
       }
     }
 
-    print('🗑️ Peças removidas: ${pecasRemovidas.length}');
-    print('🏃 Peças movidas: ${pecasMovidas.length}');
+    // Analisa mudanças para detectar combate
 
     // Se houve peças removidas, provavelmente houve combate
     if (pecasRemovidas.isNotEmpty) {
@@ -382,11 +364,6 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
           }
           // Se nenhum dos dois está no novo estado, foi empate
 
-          print(
-            '⚔️ COMBATE: ${atacante.patente.nome} vs ${defensor.patente.nome}',
-          );
-          print('🏆 Vencedor: ${vencedor?.patente.nome ?? "EMPATE"}');
-
           return InformacoesCombate(
             atacante: atacante,
             defensor: defensor,
@@ -397,16 +374,11 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
         }
       } else if (pecasRemovidas.isNotEmpty) {
         // Fallback: Se não conseguiu identificar atacante, usa as peças removidas
-        print('🔄 Tentando identificar combate pelas peças removidas');
 
         if (pecasRemovidas.length >= 2) {
           // Empate - ambas removidas
           final atacante = pecasRemovidas[0];
           final defensor = pecasRemovidas[1];
-
-          print(
-            '⚔️ COMBATE (EMPATE): ${atacante.patente.nome} vs ${defensor.patente.nome}',
-          );
 
           return InformacoesCombate(
             atacante: atacante,
@@ -429,11 +401,6 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
               .firstOrNull;
 
           if (atacante != null) {
-            print(
-              '⚔️ COMBATE: ${atacante.patente.nome} vs ${defensor.patente.nome}',
-            );
-            print('🏆 Vencedor: ${atacante.patente.nome}');
-
             return InformacoesCombate(
               atacante: atacante,
               defensor: defensor,
@@ -487,7 +454,6 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
       final socketService = _ref.read(gameSocketProvider);
       socketService.reconnect('ws://localhost:8083', nomeUsuario: nomeUsuario);
     } catch (e) {
-      print('Erro na reconexão: $e');
       state = state.copyWith(conectando: false, erro: 'Erro ao reconectar: $e');
     }
   }

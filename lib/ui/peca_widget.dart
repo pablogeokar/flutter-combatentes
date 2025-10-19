@@ -38,11 +38,6 @@ class PecaJogoWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determina a cor da peça com base na equipe.
-    final Color corDaEquipe = peca.equipe == Equipe.preta
-        ? Colors.grey[800]!
-        : Colors.green[700]!;
-
     // Calcula o tamanho da fonte baseado no tamanho da célula
     final double fontSize = (cellSize * 0.12).clamp(8.0, 14.0);
     final double borderRadius = cellSize * 0.1;
@@ -154,45 +149,17 @@ class PecaJogoWidget extends StatelessWidget {
             height: cellSize,
             margin: EdgeInsets.all(margin),
             decoration: BoxDecoration(
-              gradient: ehMovimentoValido
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.red.withValues(alpha: 0.9),
-                        Colors.red.withValues(alpha: 0.7),
-                      ],
-                    )
+              color: ehMovimentoValido
+                  ? Colors.red.withValues(alpha: 0.3)
                   : estaSelecionada
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        corDaEquipe.withValues(alpha: 1.0),
-                        corDaEquipe.withValues(alpha: 0.8),
-                      ],
-                    )
-                  : LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        habilitarClique
-                            ? corDaEquipe
-                            : corDaEquipe.withValues(alpha: 0.6),
-                        habilitarClique
-                            ? corDaEquipe.withValues(alpha: 0.8)
-                            : corDaEquipe.withValues(alpha: 0.4),
-                      ],
-                    ),
+                  ? Colors.yellow.withValues(alpha: 0.2)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(borderRadius),
               border: estaSelecionada
                   ? Border.all(color: Colors.yellow[400]!, width: 3)
                   : ehMovimentoValido
-                  ? Border.all(color: Colors.red[300]!, width: 2)
-                  : Border.all(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
+                  ? Border.all(color: Colors.red[400]!, width: 2)
+                  : null,
               boxShadow: estaSelecionada
                   ? [
                       BoxShadow(
@@ -211,34 +178,11 @@ class PecaJogoWidget extends StatelessWidget {
                         offset: const Offset(0, 1),
                       ),
                     ]
-                  : habilitarClique
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        spreadRadius: 1,
-                        blurRadius: 2,
-                        offset: const Offset(1, 1),
-                      ),
-                    ]
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        spreadRadius: 0,
-                        blurRadius: 1,
-                        offset: const Offset(0, 0),
-                      ),
-                    ],
+                  : null,
             ),
             child: Stack(
               children: [
-                Center(
-                  child: Opacity(
-                    opacity: habilitarClique
-                        ? 1.0
-                        : 0.5, // Reduz opacidade quando desabilitada
-                    child: conteudoPeca,
-                  ),
-                ),
+                Center(child: conteudoPeca),
                 if (ehMovimentoValido)
                   Positioned(
                     top: 2,

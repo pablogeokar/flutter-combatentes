@@ -24,7 +24,7 @@ class UserPreferences {
         return data;
       }
     } catch (e) {
-      print('Erro ao ler preferências: $e');
+      // Ignora erros de leitura
     }
     return {};
   }
@@ -37,7 +37,7 @@ class UserPreferences {
       final file = _getPreferencesFile();
       await file.writeAsString(jsonEncode(preferences));
     } catch (e) {
-      print('Erro ao escrever preferências: $e');
+      // Ignora erros de escrita
     }
   }
 
@@ -70,7 +70,7 @@ class UserPreferences {
         await file.delete();
       }
     } catch (e) {
-      print('Erro ao limpar preferências: $e');
+      // Ignora erros ao limpar
     }
   }
 
