@@ -471,6 +471,10 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
                 (pecaRevelada.posicao.coluna - pecaRemovida.posicao.coluna)
                     .abs();
 
+            debugPrint(
+              '📏 Distância entre ${pecaRevelada.patente.nome} revelada e ${pecaRemovida.patente.nome} removida: $distancia',
+            );
+
             if (distancia <= 1) {
               debugPrint(
                 '🎯 COMBATE IDENTIFICADO via revelação: ${pecaRevelada.patente.nome} vs ${pecaRemovida.patente.nome}',
@@ -478,13 +482,46 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
               // A peça revelada ainda existe, então ela venceu
               return InformacoesCombate(
-                atacante: pecaRevelada,
-                defensor: pecaRemovida,
+                atacante: pecaRemovida, // A removida foi o atacante
+                defensor: pecaRevelada, // A revelada foi o defensor que venceu
                 vencedor: pecaRevelada,
                 foiEmpate: false,
-                posicaoCombate: pecaRemovida.posicao,
+                posicaoCombate: pecaRevelada.posicao,
               );
             }
+          }
+        }
+      }
+
+      // ESTRATÉGIA ADICIONAL: Peça revelada sem peça removida próxima
+      // Isso pode indicar que o defensor venceu e foi revelado
+      if (pecasRemovidas.isNotEmpty) {
+        debugPrint(
+          '🔍 Verificando se peça revelada pode ser defensor que venceu',
+        );
+
+        for (final revelacao in pecasReveladas) {
+          final pecaRevelada = revelacao['nova']!;
+
+          debugPrint(
+            '🔍 Peça revelada: ${pecaRevelada.patente.nome} na posição (${pecaRevelada.posicao.linha}, ${pecaRevelada.posicao.coluna})',
+          );
+
+          // Se há uma peça removida e uma revelada, pode ser combate
+          // onde o defensor (revelado) venceu o atacante (removido)
+          final atacanteRemovido = pecasRemovidas.firstOrNull;
+          if (atacanteRemovido != null) {
+            debugPrint(
+              '🎯 POSSÍVEL COMBATE: ${atacanteRemovido.patente.nome} (removido) vs ${pecaRevelada.patente.nome} (revelado)',
+            );
+
+            return InformacoesCombate(
+              atacante: atacanteRemovido,
+              defensor: pecaRevelada,
+              vencedor: pecaRevelada, // Defensor venceu
+              foiEmpate: false,
+              posicaoCombate: pecaRevelada.posicao,
+            );
           }
         }
       }
