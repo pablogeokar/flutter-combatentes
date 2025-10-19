@@ -332,26 +332,44 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
         )
         .toList();
 
-    // Detectar peças que se moveram (incluindo posição anterior)
+    // Detectar peças que se moveram OU foram reveladas
     final pecasMovidas = <Map<String, PecaJogo>>[];
+    final pecasReveladas = <Map<String, PecaJogo>>[];
+
     for (final pecaNova in novoEstado.pecas) {
       final pecaAnterior = estadoAnterior.pecas
           .where((p) => p.id == pecaNova.id)
           .firstOrNull;
-      if (pecaAnterior != null &&
-          (pecaAnterior.posicao.linha != pecaNova.posicao.linha ||
-              pecaAnterior.posicao.coluna != pecaNova.posicao.coluna)) {
-        pecasMovidas.add({'anterior': pecaAnterior, 'nova': pecaNova});
+
+      if (pecaAnterior != null) {
+        // Detecta movimento
+        if (pecaAnterior.posicao.linha != pecaNova.posicao.linha ||
+            pecaAnterior.posicao.coluna != pecaNova.posicao.coluna) {
+          pecasMovidas.add({'anterior': pecaAnterior, 'nova': pecaNova});
+        }
+
+        // Detecta revelação (indica combate)
+        if (!pecaAnterior.foiRevelada && pecaNova.foiRevelada) {
+          pecasReveladas.add({'anterior': pecaAnterior, 'nova': pecaNova});
+          debugPrint(
+            '🔍 Peça revelada: ${pecaNova.patente.nome} na posição (${pecaNova.posicao.linha}, ${pecaNova.posicao.coluna})',
+          );
+        }
       }
     }
 
     debugPrint('🗑️ Peças removidas: ${pecasRemovidas.length}');
     debugPrint('🏃 Peças movidas: ${pecasMovidas.length}');
+    debugPrint('👁️ Peças reveladas: ${pecasReveladas.length}');
 
     // ESTRATÉGIA PRINCIPAL: Identificar combate através de peças movidas
     for (final movimento in pecasMovidas) {
       final pecaAnterior = movimento['anterior']!;
       final pecaNova = movimento['nova']!;
+
+      debugPrint(
+        '🔍 Analisando movimento: ${pecaAnterior.patente.nome} (${pecaAnterior.equipe.name}) de (${pecaAnterior.posicao.linha}, ${pecaAnterior.posicao.coluna}) para (${pecaNova.posicao.linha}, ${pecaNova.posicao.coluna})',
+      );
 
       // Verifica se havia uma peça inimiga na posição de destino
       final defensorNaPosicao = estadoAnterior.pecas
@@ -363,6 +381,17 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
                 p.equipe != pecaAnterior.equipe,
           )
           .firstOrNull;
+
+      debugPrint(
+        '🔍 Procurando defensor na posição (${pecaNova.posicao.linha}, ${pecaNova.posicao.coluna})',
+      );
+      if (defensorNaPosicao != null) {
+        debugPrint(
+          '🛡️ Defensor encontrado: ${defensorNaPosicao.patente.nome} (${defensorNaPosicao.equipe.name})',
+        );
+      } else {
+        debugPrint('❌ Nenhum defensor encontrado na posição de destino');
+      }
 
       if (defensorNaPosicao != null) {
         debugPrint(
@@ -398,6 +427,37 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
           foiEmpate: foiEmpate,
           posicaoCombate: defensorNaPosicao.posicao,
         );
+      }
+    }
+
+    // ESTRATÉGIA ALTERNATIVA: Combate através de peças reveladas
+    if (pecasReveladas.isNotEmpty && pecasRemovidas.isNotEmpty) {
+      debugPrint('🔍 Tentando identificar combate através de peças reveladas');
+
+      for (final revelacao in pecasReveladas) {
+        final pecaRevelada = revelacao['nova']!;
+
+        // Procura por uma peça removida na mesma posição ou próxima
+        for (final pecaRemovida in pecasRemovidas) {
+          final distancia =
+              (pecaRevelada.posicao.linha - pecaRemovida.posicao.linha).abs() +
+              (pecaRevelada.posicao.coluna - pecaRemovida.posicao.coluna).abs();
+
+          if (distancia <= 1) {
+            debugPrint(
+              '🎯 COMBATE IDENTIFICADO via revelação: ${pecaRevelada.patente.nome} vs ${pecaRemovida.patente.nome}',
+            );
+
+            // A peça revelada ainda existe, então ela venceu
+            return InformacoesCombate(
+              atacante: pecaRevelada,
+              defensor: pecaRemovida,
+              vencedor: pecaRevelada,
+              foiEmpate: false,
+              posicaoCombate: pecaRemovida.posicao,
+            );
+          }
+        }
       }
     }
 
@@ -457,6 +517,10 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
           )
           .firstOrNull;
 
+      debugPrint(
+        '🔍 Procurando atacante na posição da peça removida (${pecaRemovida.posicao.linha}, ${pecaRemovida.posicao.coluna})',
+      );
+
       if (atacanteNaPosicao != null) {
         debugPrint(
           '🎯 Atacante encontrado na posição: ${atacanteNaPosicao.patente.nome}',
@@ -468,6 +532,52 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
           foiEmpate: false,
           posicaoCombate: pecaRemovida.posicao,
         );
+      } else {
+        debugPrint('❌ Nenhuma peça encontrada na posição da peça removida');
+
+        // Tenta encontrar uma peça que se moveu para uma posição próxima
+        debugPrint(
+          '🔍 Procurando peças que se moveram para posições próximas...',
+        );
+        for (final movimento in pecasMovidas) {
+          final pecaAnterior = movimento['anterior']!;
+          final pecaNova = movimento['nova']!;
+
+          debugPrint(
+            '📍 Movimento: ${pecaAnterior.patente.nome} de (${pecaAnterior.posicao.linha}, ${pecaAnterior.posicao.coluna}) para (${pecaNova.posicao.linha}, ${pecaNova.posicao.coluna})',
+          );
+
+          // Verifica se a peça se moveu para a posição exata da peça removida
+          if (pecaNova.posicao.linha == pecaRemovida.posicao.linha &&
+              pecaNova.posicao.coluna == pecaRemovida.posicao.coluna) {
+            debugPrint(
+              '🎯 Encontrou peça que se moveu para a posição da removida!',
+            );
+
+            // Mas a peça não está mais lá, então o defensor venceu
+            return InformacoesCombate(
+              atacante: pecaAnterior,
+              defensor: pecaRemovida,
+              vencedor: pecaRemovida, // Defensor venceu
+              foiEmpate: false,
+              posicaoCombate: pecaRemovida.posicao,
+            );
+          }
+
+          // Verifica se a peça estava na posição da peça removida antes
+          if (pecaAnterior.posicao.linha == pecaRemovida.posicao.linha &&
+              pecaAnterior.posicao.coluna == pecaRemovida.posicao.coluna) {
+            debugPrint('🎯 Encontrou peça que estava na posição da removida!');
+
+            return InformacoesCombate(
+              atacante: pecaRemovida, // A removida atacou
+              defensor: pecaAnterior,
+              vencedor: pecaAnterior, // A que se moveu venceu
+              foiEmpate: false,
+              posicaoCombate: pecaRemovida.posicao,
+            );
+          }
+        }
       }
 
       // ÚLTIMA TENTATIVA: Para minas terrestres, tenta encontrar atacante próximo
