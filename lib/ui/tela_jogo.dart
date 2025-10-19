@@ -142,7 +142,7 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
             // Logo de texto do jogo
             Image.asset(
               'assets/images/combatentes.png',
-              height: 28,
+              height: 36,
               fit: BoxFit.contain,
             ),
             if (estadoJogo != null) ...[

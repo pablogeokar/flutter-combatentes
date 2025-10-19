@@ -134,3 +134,34 @@ assets/sounds/
 ├── comemoracao.mp3       # Victory celebration
 └── derrota_fim.wav       # Defeat sound
 ```
+
+## Visual Design System
+
+### Military Theme Architecture
+
+- **Component Library**: Centralized MilitaryThemeWidgets class for consistent UI elements
+- **Asset Integration**: Strategic use of logo.png, combatentes.png, and bg.png across interfaces
+- **Color Consistency**: Military green palette (#2E7D32, #4CAF50, #81C784) with proper contrast ratios
+- **Responsive Layouts**: Adaptive design patterns that scale across different screen sizes
+
+### Visual Asset Structure
+
+```
+assets/images/
+├── logo.png              # Main game logo (used in headers and splash)
+├── combatentes.png       # Text logo (used in AppBar and branding)
+├── bg.png               # Camouflage texture background
+├── board_background.png  # Game board texture
+├── tela_inicial.png     # Legacy background (replaced by bg.png)
+├── vitoria.png          # Victory screen graphics
+├── derrota.png          # Defeat screen graphics
+└── pecas/               # Game piece images directory
+```
+
+### UI Component Standards
+
+- **Military Cards**: Elevated containers with military green borders and proper shadows
+- **Themed Buttons**: Consistent styling with loading states and icon integration
+- **Professional Headers**: Logo integration with proper spacing and typography
+- **Textured Backgrounds**: Camouflage pattern with opacity overlays for readability
+- **Status Indicators**: Military-themed badges and progress indicators

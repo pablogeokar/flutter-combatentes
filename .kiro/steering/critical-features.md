@@ -182,6 +182,19 @@ This document outlines the most important features and bug fixes that are essent
 - **Smart Detection**: Audio triggers based on game state changes and turn detection
 - **Performance Optimized**: Separate audio players for background music and sound effects
 
+### Military Visual Theme System
+
+**Implementation**: Consistent military-themed visual design across all interfaces
+
+- **Textured Backgrounds**: Camouflage texture (bg.png) used throughout all screens
+- **Professional Branding**: Main logo (logo.png) and text logo (combatentes.png) integration
+- **Military UI Components**: Specialized widgets for buttons, cards, dialogs, and form fields
+- **Consistent Color Palette**: Military green theme with proper contrast and accessibility
+- **Enhanced Splash Screen**: Professional loading screen with layered logos and textured background
+- **Themed Dialogs**: Military-styled alert dialogs with proper branding and visual hierarchy
+- **Responsive Design**: Adaptive layouts that work across different screen sizes
+- **Visual Cohesion**: Unified design language from splash screen through gameplay interface
+
 ## 🔧 Development Guidelines
 
 ### When Adding New Features

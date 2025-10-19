@@ -114,42 +114,99 @@ class MilitaryThemeWidgets {
     );
   }
 
+  /// Logo militar grande para telas especiais
+  static Widget militaryLargeLogo({
+    double logoSize = 200,
+    double textLogoSize = 80,
+    String? subtitle,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: primaryGreen.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(
+              color: primaryGreen.withValues(alpha: 0.3),
+              width: 3,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: primaryGreen.withValues(alpha: 0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Image.asset(
+            'assets/images/logo.png',
+            height: logoSize,
+            fit: BoxFit.contain,
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        Image.asset(
+          'assets/images/combatentes.png',
+          height: textLogoSize,
+          fit: BoxFit.contain,
+        ),
+
+        if (subtitle != null) ...[
+          const SizedBox(height: 16),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ],
+    );
+  }
+
   /// Header militar com logo
   static Widget militaryHeader({
     String? title,
     String? subtitle,
     bool showLogo = true,
     bool showTextLogo = true,
+    double logoSize = 140,
+    double textLogoSize = 50,
   }) {
     return Column(
       children: [
         if (showLogo) ...[
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: primaryGreen.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: primaryGreen.withValues(alpha: 0.3),
-                width: 1,
+                width: 2,
               ),
             ),
             child: Image.asset(
               'assets/images/logo.png',
-              height: 80,
+              height: logoSize,
               fit: BoxFit.contain,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
         ],
 
         if (showTextLogo) ...[
           Image.asset(
             'assets/images/combatentes.png',
-            height: 40,
+            height: textLogoSize,
             fit: BoxFit.contain,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
         ],
 
         if (title != null) ...[

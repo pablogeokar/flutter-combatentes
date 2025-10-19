@@ -88,10 +88,10 @@ class _SplashScreenState extends State<SplashScreen> {
               children: [
                 // Logo principal do jogo
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(24),
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.3),
                       width: 2,
@@ -99,17 +99,17 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                   child: Image.asset(
                     'assets/images/logo.png',
-                    height: 120,
+                    height: 160,
                     fit: BoxFit.contain,
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
 
                 // Logo de texto
                 Image.asset(
                   'assets/images/combatentes.png',
-                  height: 60,
+                  height: 70,
                   fit: BoxFit.contain,
                 ),
 

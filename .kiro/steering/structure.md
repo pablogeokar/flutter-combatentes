@@ -27,10 +27,12 @@ lib/
 ├── audio_service.dart      # Comprehensive audio management system
 └── ui/                     # UI components and screens
     ├── tela_jogo.dart      # Main game screen
+    ├── tela_nome_usuario.dart # User name input screen
     ├── animated_board_widget.dart # Advanced animation system
     ├── piece_movement_widget.dart # Individual piece animations
     ├── explosion_widget.dart      # Combat visual effects
-    └── audio_settings_dialog.dart # Audio configuration interface
+    ├── audio_settings_dialog.dart # Audio configuration interface
+    └── military_theme_widgets.dart # Military UI component library
 ```
 
 ## Server Structure (`server/`)
@@ -118,10 +120,21 @@ server/
   - Integration with combat detection system
 
 - **`audio_settings_dialog.dart`**: Audio configuration interface
+
   - Toggle controls for background music and sound effects
   - Test buttons for all audio types (turn, combat, explosion)
   - Real-time audio control without app restart
   - Professional UI with clear visual feedback
+
+- **`military_theme_widgets.dart`**: Comprehensive military UI component library
+  - Textured background containers with camouflage pattern
+  - Military-styled cards with proper borders and shadows
+  - Themed buttons with consistent styling and loading states
+  - Professional headers with logo integration
+  - Military-themed dialogs with proper branding
+  - Styled text fields with military color scheme
+  - Status indicators and loading components
+  - Reusable components for consistent visual design
 
 ### Server (Modular Architecture)
 
