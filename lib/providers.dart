@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import './game_socket_service.dart';
 import './modelos_jogo.dart';
@@ -125,7 +126,13 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
         // Detecta combates comparando estados
         final combate = _detectarCombate(state.estadoJogo, novoEstado);
 
-        // Detecta combates comparando estados
+        if (combate != null) {
+          debugPrint(
+            '🎯 COMBATE DETECTADO NO PROVIDER: ${combate.atacante.patente.nome} vs ${combate.defensor.patente.nome}',
+          );
+        } else {
+          debugPrint('🔍 Nenhum combate detectado nesta atualização');
+        }
 
         state = state.copyWith(
           estadoJogo: novoEstado,
@@ -307,9 +314,16 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
     EstadoJogo? estadoAnterior,
     EstadoJogo novoEstado,
   ) {
-    if (estadoAnterior == null) return null;
+    if (estadoAnterior == null) {
+      debugPrint('🔍 Estado anterior é null, não há combate para detectar');
+      return null;
+    }
 
-    // Estratégia mais simples: detectar peças que foram removidas
+    debugPrint(
+      '🔍 Detectando combate: ${estadoAnterior.pecas.length} -> ${novoEstado.pecas.length} peças',
+    );
+
+    // Detectar peças que foram removidas
     final pecasRemovidas = estadoAnterior.pecas
         .where(
           (pecaAnterior) => !novoEstado.pecas.any(
@@ -318,8 +332,8 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
         )
         .toList();
 
-    // Detectar peças que se moveram
-    final pecasMovidas = <PecaJogo>[];
+    // Detectar peças que se moveram (incluindo posição anterior)
+    final pecasMovidas = <Map<String, PecaJogo>>[];
     for (final pecaNova in novoEstado.pecas) {
       final pecaAnterior = estadoAnterior.pecas
           .where((p) => p.id == pecaNova.id)
@@ -327,92 +341,181 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
       if (pecaAnterior != null &&
           (pecaAnterior.posicao.linha != pecaNova.posicao.linha ||
               pecaAnterior.posicao.coluna != pecaNova.posicao.coluna)) {
-        pecasMovidas.add(pecaAnterior);
+        pecasMovidas.add({'anterior': pecaAnterior, 'nova': pecaNova});
       }
     }
 
-    // Analisa mudanças para detectar combate
+    debugPrint('🗑️ Peças removidas: ${pecasRemovidas.length}');
+    debugPrint('🏃 Peças movidas: ${pecasMovidas.length}');
 
-    // Se houve peças removidas, provavelmente houve combate
-    if (pecasRemovidas.isNotEmpty) {
-      // Tenta identificar o atacante (peça que se moveu)
-      final atacante = pecasMovidas.isNotEmpty ? pecasMovidas.first : null;
+    // ESTRATÉGIA PRINCIPAL: Identificar combate através de peças movidas
+    for (final movimento in pecasMovidas) {
+      final pecaAnterior = movimento['anterior']!;
+      final pecaNova = movimento['nova']!;
 
-      // Encontra a nova posição do atacante
-      final atacanteNovo = atacante != null
-          ? novoEstado.pecas.where((p) => p.id == atacante.id).firstOrNull
-          : null;
+      // Verifica se havia uma peça inimiga na posição de destino
+      final defensorNaPosicao = estadoAnterior.pecas
+          .where(
+            (p) =>
+                p.posicao.linha == pecaNova.posicao.linha &&
+                p.posicao.coluna == pecaNova.posicao.coluna &&
+                p.id != pecaAnterior.id &&
+                p.equipe != pecaAnterior.equipe,
+          )
+          .firstOrNull;
 
-      if (atacante != null && atacanteNovo != null) {
-        // Verifica se havia uma peça na posição de destino
-        final defensor = estadoAnterior.pecas
-            .where(
-              (p) =>
-                  p.posicao.linha == atacanteNovo.posicao.linha &&
-                  p.posicao.coluna == atacanteNovo.posicao.coluna &&
-                  p.id != atacante.id,
-            )
-            .firstOrNull;
+      if (defensorNaPosicao != null) {
+        debugPrint(
+          '🎯 COMBATE IDENTIFICADO: ${pecaAnterior.patente.nome} atacou ${defensorNaPosicao.patente.nome}',
+        );
 
-        if (defensor != null) {
-          // Determina o vencedor
-          PecaJogo? vencedor;
-          if (novoEstado.pecas.any((p) => p.id == atacante.id)) {
-            vencedor = atacante;
-          } else if (novoEstado.pecas.any((p) => p.id == defensor.id)) {
-            vencedor = defensor;
-          }
-          // Se nenhum dos dois está no novo estado, foi empate
+        // Determina o vencedor baseado em quem ainda existe
+        PecaJogo? vencedor;
+        bool foiEmpate = false;
 
-          return InformacoesCombate(
-            atacante: atacante,
-            defensor: defensor,
-            vencedor: vencedor,
-            foiEmpate: vencedor == null,
-            posicaoCombate: atacanteNovo.posicao,
-          );
+        final atacanteAindaExiste = novoEstado.pecas.any(
+          (p) => p.id == pecaAnterior.id,
+        );
+        final defensorAindaExiste = novoEstado.pecas.any(
+          (p) => p.id == defensorNaPosicao.id,
+        );
+
+        if (atacanteAindaExiste && !defensorAindaExiste) {
+          vencedor = pecaAnterior;
+          debugPrint('🏆 Atacante venceu');
+        } else if (!atacanteAindaExiste && defensorAindaExiste) {
+          vencedor = defensorNaPosicao;
+          debugPrint('🛡️ Defensor venceu');
+        } else if (!atacanteAindaExiste && !defensorAindaExiste) {
+          foiEmpate = true;
+          debugPrint('⚖️ Empate - ambos removidos');
         }
-      } else if (pecasRemovidas.isNotEmpty) {
-        // Fallback: Se não conseguiu identificar atacante, usa as peças removidas
 
-        if (pecasRemovidas.length >= 2) {
-          // Empate - ambas removidas
-          final atacante = pecasRemovidas[0];
-          final defensor = pecasRemovidas[1];
+        return InformacoesCombate(
+          atacante: pecaAnterior,
+          defensor: defensorNaPosicao,
+          vencedor: vencedor,
+          foiEmpate: foiEmpate,
+          posicaoCombate: defensorNaPosicao.posicao,
+        );
+      }
+    }
 
-          return InformacoesCombate(
-            atacante: atacante,
-            defensor: defensor,
-            vencedor: null,
-            foiEmpate: true,
-            posicaoCombate: atacante.posicao,
-          );
-        } else if (pecasRemovidas.length == 1) {
-          // Uma peça foi removida - precisa identificar o atacante
-          final defensor = pecasRemovidas[0];
+    // ESTRATÉGIA SECUNDÁRIA: Empates (múltiplas peças removidas)
+    if (pecasRemovidas.length >= 2) {
+      debugPrint(
+        '⚖️ Empate detectado - ${pecasRemovidas.length} peças removidas',
+      );
 
-          // Procura por uma peça que agora está na posição do defensor
-          final atacante = novoEstado.pecas
-              .where(
-                (p) =>
-                    p.posicao.linha == defensor.posicao.linha &&
-                    p.posicao.coluna == defensor.posicao.coluna,
-              )
+      // Tenta identificar atacante e defensor
+      PecaJogo? atacante;
+      PecaJogo? defensor;
+
+      // Se há peças movidas, a primeira pode ser o atacante
+      if (pecasMovidas.isNotEmpty) {
+        final movimentoRecente = pecasMovidas.first;
+        final pecaQueSeMoveu = movimentoRecente['anterior']!;
+
+        // Verifica se a peça que se moveu foi removida (indicando combate)
+        if (pecasRemovidas.any((p) => p.id == pecaQueSeMoveu.id)) {
+          atacante = pecaQueSeMoveu;
+          // O defensor seria outra peça removida
+          defensor = pecasRemovidas
+              .where((p) => p.id != atacante!.id)
               .firstOrNull;
+        }
+      }
 
-          if (atacante != null) {
+      // Se não conseguiu identificar, usa as duas primeiras removidas
+      if (atacante == null || defensor == null) {
+        atacante = pecasRemovidas[0];
+        defensor = pecasRemovidas[1];
+      }
+
+      return InformacoesCombate(
+        atacante: atacante,
+        defensor: defensor,
+        vencedor: null,
+        foiEmpate: true,
+        posicaoCombate: defensor.posicao,
+      );
+    }
+
+    // ESTRATÉGIA TERCIÁRIA: Uma peça removida com atacante na posição
+    if (pecasRemovidas.length == 1) {
+      final pecaRemovida = pecasRemovidas[0];
+      debugPrint(
+        '🎯 1 peça removida: ${pecaRemovida.patente.nome} na posição (${pecaRemovida.posicao.linha}, ${pecaRemovida.posicao.coluna})',
+      );
+
+      // Procura por uma peça que agora está na posição da peça removida
+      final atacanteNaPosicao = novoEstado.pecas
+          .where(
+            (p) =>
+                p.posicao.linha == pecaRemovida.posicao.linha &&
+                p.posicao.coluna == pecaRemovida.posicao.coluna,
+          )
+          .firstOrNull;
+
+      if (atacanteNaPosicao != null) {
+        debugPrint(
+          '🎯 Atacante encontrado na posição: ${atacanteNaPosicao.patente.nome}',
+        );
+        return InformacoesCombate(
+          atacante: atacanteNaPosicao,
+          defensor: pecaRemovida,
+          vencedor: atacanteNaPosicao,
+          foiEmpate: false,
+          posicaoCombate: pecaRemovida.posicao,
+        );
+      }
+
+      // ÚLTIMA TENTATIVA: Para minas terrestres, tenta encontrar atacante próximo
+      if (pecaRemovida.patente == Patente.minaTerrestre &&
+          pecasMovidas.isNotEmpty) {
+        debugPrint('💣 Mina terrestre removida - procurando atacante próximo');
+
+        for (final movimento in pecasMovidas) {
+          final pecaAnterior = movimento['anterior']!;
+          final pecaNova = movimento['nova']!;
+
+          debugPrint(
+            '🔍 Analisando movimento: ${pecaAnterior.patente.nome} de (${pecaAnterior.posicao.linha}, ${pecaAnterior.posicao.coluna}) para (${pecaNova.posicao.linha}, ${pecaNova.posicao.coluna})',
+          );
+
+          // Verifica se a peça se moveu para uma posição adjacente à mina
+          final distancia =
+              (pecaNova.posicao.linha - pecaRemovida.posicao.linha).abs() +
+              (pecaNova.posicao.coluna - pecaRemovida.posicao.coluna).abs();
+
+          debugPrint('📏 Distância da peça movida para a mina: $distancia');
+
+          if (distancia <= 1) {
+            debugPrint(
+              '💥 Atacante da mina identificado: ${pecaAnterior.patente.nome}',
+            );
+
+            // Verifica se o atacante também foi removido (mina explodiu)
+            final atacanteRemovido = pecasRemovidas.any(
+              (p) => p.id == pecaAnterior.id,
+            );
+            debugPrint('⚔️ Atacante também removido? $atacanteRemovido');
+
             return InformacoesCombate(
-              atacante: atacante,
-              defensor: defensor,
-              vencedor: atacante,
-              foiEmpate: false,
-              posicaoCombate: defensor.posicao,
+              atacante: pecaAnterior,
+              defensor: pecaRemovida,
+              vencedor: atacanteRemovido ? null : pecaAnterior,
+              foiEmpate: atacanteRemovido,
+              posicaoCombate: pecaRemovida.posicao,
             );
           }
         }
+
+        debugPrint('❌ Nenhum atacante próximo encontrado para a mina');
       }
     }
 
+    debugPrint('❌ Nenhum combate identificado - retornando null');
     return null;
   }
 

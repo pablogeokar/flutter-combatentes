@@ -37,7 +37,25 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
       // Mostra resultado do combate
       if (next.ultimoCombate != null &&
           previous?.ultimoCombate != next.ultimoCombate) {
-        _showCombatResultDialog(context, next.ultimoCombate!, ref);
+        debugPrint(
+          '📺 CHAMANDO DIÁLOGO DE COMBATE: ${next.ultimoCombate!.atacante.patente.nome} vs ${next.ultimoCombate!.defensor.patente.nome}',
+        );
+
+        // Verifica se precisa mostrar explosão ANTES do diálogo
+        if (next.ultimoCombate!.defensor.patente == Patente.minaTerrestre) {
+          debugPrint('💥 MINA TERRESTRE DETECTADA - Mostrando explosão');
+          _showExplosionEffect(next.ultimoCombate!.posicaoCombate);
+
+          // Mostra o diálogo após um pequeno delay para a explosão ser visível
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              _showCombatResultDialog(context, next.ultimoCombate!, ref);
+            }
+          });
+        } else {
+          // Para outros combates, mostra o diálogo imediatamente
+          _showCombatResultDialog(context, next.ultimoCombate!, ref);
+        }
       }
 
       // Mostra uma mensagem de erro se uma ocorrer.
@@ -194,7 +212,7 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
   /// Mostra o efeito de explosão na posição especificada
   void _showExplosionEffect(PosicaoTabuleiro posicao) {
     debugPrint(
-      '💥 Iniciando efeito de explosão na posição (${posicao.linha}, ${posicao.coluna})',
+      '💥 _showExplosionEffect CHAMADA! Posição: (${posicao.linha}, ${posicao.coluna})',
     );
 
     // Calcula a posição da explosão baseada na posição da peça no tabuleiro
@@ -241,7 +259,10 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     if (mounted) {
       setState(() {
         _explosions.add(explosion);
+        debugPrint('✅ Explosão adicionada! Total: ${_explosions.length}');
       });
+    } else {
+      debugPrint('❌ Widget não montado, explosão não adicionada');
     }
   }
 
@@ -251,14 +272,9 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     InformacoesCombate combate,
     WidgetRef ref,
   ) {
-    // Verifica se houve explosão de mina terrestre
-    if (combate.defensor.patente == Patente.minaTerrestre &&
-        combate.atacante.patente != Patente.cabo) {
-      debugPrint(
-        '💥 EXPLOSÃO! ${combate.atacante.patente.nome} atacou Mina Terrestre',
-      );
-      _showExplosionEffect(combate.posicaoCombate);
-    }
+    debugPrint(
+      '🔍 COMBATE: ${combate.atacante.patente.nome} vs ${combate.defensor.patente.nome}',
+    );
     final bool ehMeuAtacante = _isMinhaEquipe(
       combate.atacante,
       ref.read(gameStateProvider).nomeUsuario,
