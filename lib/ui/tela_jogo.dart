@@ -54,24 +54,19 @@ class TelaJogo extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        title: Row(
           children: [
             const Text(
               'Combatentes',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            if (nomeUsuario != null)
-              Text(
-                'Jogador: $nomeUsuario',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.normal,
-                ),
-              ),
+            if (estadoJogo != null) ...[
+              const SizedBox(width: 16),
+              Expanded(child: _buildCompactGameInfo(estadoJogo, nomeUsuario)),
+            ],
           ],
         ),
-        backgroundColor: const Color(0xFF2E7D32),
+        backgroundColor: const Color(0xFF2E7D32).withValues(alpha: 0.9),
         foregroundColor: Colors.white,
         actions: [
           // Menu de opções do usuário
@@ -111,11 +106,6 @@ class TelaJogo extends ConsumerWidget {
               ),
             ],
           ),
-          if (estadoJogo != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: Center(child: _buildGameStatus(estadoJogo, nomeUsuario)),
-            ),
         ],
       ),
       body: Stack(
@@ -170,31 +160,21 @@ class TelaJogo extends ConsumerWidget {
             )
           else
             // Mostra o tabuleiro quando o estado estiver disponível
-            Column(
-              children: [
-                // Informações da partida
-                _buildGameInfo(estadoJogo, nomeUsuario),
-                // Tabuleiro
-                Expanded(
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: 1.0,
-                      child: TabuleiroWidget(
-                        estadoJogo: estadoJogo,
-                        idPecaSelecionada: uiState.idPecaSelecionada,
-                        movimentosValidos: uiState.movimentosValidos,
-                        nomeUsuarioLocal: nomeUsuario,
-                        onPecaTap: (idPeca) => ref
-                            .read(gameStateProvider.notifier)
-                            .selecionarPeca(idPeca),
-                        onPosicaoTap: (posicao) => ref
-                            .read(gameStateProvider.notifier)
-                            .moverPeca(posicao),
-                      ),
-                    ),
-                  ),
+            Center(
+              child: AspectRatio(
+                aspectRatio: 1.0,
+                child: TabuleiroWidget(
+                  estadoJogo: estadoJogo,
+                  idPecaSelecionada: uiState.idPecaSelecionada,
+                  movimentosValidos: uiState.movimentosValidos,
+                  nomeUsuarioLocal: nomeUsuario,
+                  onPecaTap: (idPeca) => ref
+                      .read(gameStateProvider.notifier)
+                      .selecionarPeca(idPeca),
+                  onPosicaoTap: (posicao) =>
+                      ref.read(gameStateProvider.notifier).moverPeca(posicao),
                 ),
-              ],
+              ),
             ),
         ],
       ),
@@ -725,8 +705,8 @@ class TelaJogo extends ConsumerWidget {
     );
   }
 
-  /// Constrói o widget de status do jogo no AppBar
-  Widget _buildGameStatus(EstadoJogo estado, String? nomeUsuario) {
+  /// Constrói as informações compactas do jogo para o AppBar
+  Widget _buildCompactGameInfo(EstadoJogo estado, String? nomeUsuario) {
     final jogadorDaVez = estado.jogadores.firstWhere(
       (j) => j.id == estado.idJogadorDaVez,
     );
@@ -735,51 +715,39 @@ class TelaJogo extends ConsumerWidget {
         nomeUsuario != null && jogadorDaVez.nome.contains(nomeUsuario);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: ehMinhVez ? Colors.green : Colors.orange,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        ehMinhVez ? 'Sua vez!' : 'Vez do oponente',
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
-
-  /// Constrói as informações da partida
-  Widget _buildGameInfo(EstadoJogo estado, String? nomeUsuario) {
-    return Container(
-      margin: const EdgeInsets.all(8.0),
-      padding: const EdgeInsets.all(12.0),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.black.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildPlayerInfo(estado.jogadores[0], estado, nomeUsuario),
-          const Text(
-            'VS',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+          _buildCompactPlayerInfo(estado.jogadores[0], estado, nomeUsuario),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: ehMinhVez ? Colors.green : Colors.orange,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              ehMinhVez ? 'Sua vez' : 'Oponente',
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ),
-          _buildPlayerInfo(estado.jogadores[1], estado, nomeUsuario),
+          _buildCompactPlayerInfo(estado.jogadores[1], estado, nomeUsuario),
         ],
       ),
     );
   }
 
-  /// Constrói as informações de um jogador
-  Widget _buildPlayerInfo(
+  /// Constrói informações compactas de um jogador
+  Widget _buildCompactPlayerInfo(
     Jogador jogador,
     EstadoJogo estado,
     String? nomeUsuario,
@@ -792,42 +760,44 @@ class TelaJogo extends ConsumerWidget {
         .length;
 
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: ehVez ? Colors.green.withValues(alpha: 0.3) : Colors.transparent,
+        color: ehVez ? Colors.white.withValues(alpha: 0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(6),
-        border: ehVez ? Border.all(color: Colors.yellow, width: 2) : null,
+        border: ehVez ? Border.all(color: Colors.yellow, width: 1) : null,
       ),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: jogador.equipe == Equipe.preta
+                  ? Colors.grey[400]
+                  : Colors.green[400],
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
           Text(
-            jogador.nome,
+            jogador.nome.length > 8
+                ? '${jogador.nome.substring(0, 8)}...'
+                : jogador.nome,
             style: TextStyle(
               color: Colors.white,
               fontWeight: ehEuMesmo ? FontWeight.bold : FontWeight.normal,
-              fontSize: 14,
+              fontSize: 11,
             ),
           ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: jogador.equipe == Equipe.preta
-                      ? Colors.grey[800]
-                      : Colors.green[700],
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '$pecasRestantes peças',
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-            ],
+          const SizedBox(width: 4),
+          Text(
+            '$pecasRestantes',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
