@@ -5,6 +5,7 @@ import '../modelos_jogo.dart';
 import '../providers.dart';
 import '../services/user_preferences.dart';
 import './tabuleiro_widget.dart';
+import './animated_board_widget.dart';
 import './tela_nome_usuario.dart';
 import './explosion_widget.dart';
 
@@ -189,16 +190,19 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
             Center(
               child: AspectRatio(
                 aspectRatio: 1.0,
-                child: TabuleiroWidget(
+                child: AnimatedBoardWidget(
                   estadoJogo: estadoJogo,
                   idPecaSelecionada: uiState.idPecaSelecionada,
                   movimentosValidos: uiState.movimentosValidos,
                   nomeUsuarioLocal: nomeUsuario,
+                  movimentoPendente: uiState.ultimoMovimento,
                   onPecaTap: (idPeca) => ref
                       .read(gameStateProvider.notifier)
                       .selecionarPeca(idPeca),
                   onPosicaoTap: (posicao) =>
                       ref.read(gameStateProvider.notifier).moverPeca(posicao),
+                  onMovementComplete: () =>
+                      ref.read(gameStateProvider.notifier).limparMovimento(),
                 ),
               ),
             ),

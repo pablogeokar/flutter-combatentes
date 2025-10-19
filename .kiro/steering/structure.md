@@ -25,7 +25,10 @@ lib/
 ├── game_socket_service.dart # WebSocket client service
 ├── providers.dart          # Riverpod state management
 └── ui/                     # UI components and screens
-    └── tela_jogo.dart      # Main game screen
+    ├── tela_jogo.dart      # Main game screen
+    ├── animated_board_widget.dart # Advanced animation system
+    ├── piece_movement_widget.dart # Individual piece animations
+    └── explosion_widget.dart      # Combat visual effects
 ```
 
 ## Server Structure (`server/`)
@@ -83,10 +86,33 @@ server/
   - Professional styling with shadows and animations
 
 - **`tela_jogo.dart`**: Main game screen with enhanced combat dialogs
+
   - Improved combat visualization (25% larger piece display)
   - Comprehensive connection management UI
   - Real-time game state synchronization
   - Multi-platform user interaction handling
+
+- **`animated_board_widget.dart`**: Advanced animation system for piece movement
+
+  - Integrated animation controller with smooth transitions
+  - Dust trail particle effects during movement
+  - Dynamic shadow and rotation effects
+  - Professional board background with grid overlay
+  - Coordinated animation timing with game state updates
+
+- **`piece_movement_widget.dart`**: Individual piece animation component
+
+  - Smooth movement transitions with easeOutQuart curve
+  - Particle trail system with configurable effects
+  - Dynamic shadow positioning based on movement
+  - Subtle rotation effects for realistic movement
+  - Integration with board coordinate system
+
+- **`explosion_widget.dart`**: Combat visual effects system
+  - Animated explosion effects for combat resolution
+  - Particle system for debris and smoke effects
+  - Configurable animation duration and intensity
+  - Integration with combat detection system
 
 ### Server (Modular Architecture)
 

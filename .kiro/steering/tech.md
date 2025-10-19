@@ -66,3 +66,42 @@ pnpm run start
 - **Server**: Event-driven WebSocket architecture
 - **Communication**: JSON message passing over WebSocket
 - **Game Logic**: Shared business logic between client and server (duplicated for validation)
+
+## Animation System
+
+### Flutter Animation Framework
+
+- **AnimationController**: Core animation timing and lifecycle management
+- **Tween**: Value interpolation for smooth transitions (position, rotation, opacity)
+- **Curves**: easeOutQuart curve for natural movement feel
+- **Duration**: 800ms standard for piece movement animations
+
+### Visual Effects Implementation
+
+- **Particle Systems**: Custom particle trail effects using positioned widgets
+- **Dynamic Shadows**: Shadow positioning based on piece movement direction
+- **Background Integration**: Asset-based board background with transparent overlays
+- **Coordinate Transformation**: Unified coordinate system for animations and game logic
+
+### Performance Optimization
+
+- **Widget Recycling**: Reuse of animation widgets to minimize memory allocation
+- **Selective Rebuilds**: Targeted widget updates to prevent unnecessary redraws
+- **Asset Preloading**: Background images and particle textures loaded at startup
+- **Animation Disposal**: Proper cleanup of animation controllers and timers
+
+## Combat Detection System
+
+### Multi-Strategy Detection
+
+- **Primary Strategy**: Direct movement tracking via game state changes
+- **Secondary Strategy**: Proximity-based detection using revealed piece positions
+- **Tertiary Strategy**: Tie-breaking logic for simultaneous revelations
+- **Specialized Detection**: Landmine encounter detection via piece revelation patterns
+
+### State Management Integration
+
+- **Real-time Updates**: WebSocket-driven state synchronization
+- **Local Prediction**: Client-side movement validation for responsive UI
+- **Server Authority**: Authoritative combat resolution on server side
+- **Rollback Capability**: Client state correction when predictions are wrong

@@ -35,6 +35,21 @@ class InformacoesCombate {
   });
 }
 
+/// Informações sobre um movimento de peça
+class InformacoesMovimento {
+  final PecaJogo peca;
+  final PosicaoTabuleiro posicaoInicial;
+  final PosicaoTabuleiro posicaoFinal;
+  final bool temCombate;
+
+  const InformacoesMovimento({
+    required this.peca,
+    required this.posicaoInicial,
+    required this.posicaoFinal,
+    this.temCombate = false,
+  });
+}
+
 /// Um estado imutável que representa tudo o que é necessário para a UI da tela do jogo.
 class TelaJogoState {
   /// O estado do jogo pode ser nulo durante a conexão inicial.
@@ -42,6 +57,7 @@ class TelaJogoState {
   final String? idPecaSelecionada;
   final List<PosicaoTabuleiro> movimentosValidos;
   final InformacoesCombate? ultimoCombate;
+  final InformacoesMovimento? ultimoMovimento;
   final String? erro;
   final bool conectando;
   final String? nomeUsuario;
@@ -52,6 +68,7 @@ class TelaJogoState {
     this.idPecaSelecionada,
     this.movimentosValidos = const [],
     this.ultimoCombate,
+    this.ultimoMovimento,
     this.erro,
     this.conectando = true,
     this.nomeUsuario,
@@ -63,6 +80,7 @@ class TelaJogoState {
     String? idPecaSelecionada,
     List<PosicaoTabuleiro>? movimentosValidos,
     InformacoesCombate? ultimoCombate,
+    InformacoesMovimento? ultimoMovimento,
     String? erro,
     bool? conectando,
     String? nomeUsuario,
@@ -70,6 +88,7 @@ class TelaJogoState {
     bool limparSelecao = false,
     bool limparErro = false,
     bool limparCombate = false,
+    bool limparMovimento = false,
   }) {
     return TelaJogoState(
       estadoJogo: estadoJogo ?? this.estadoJogo,
@@ -80,6 +99,9 @@ class TelaJogoState {
           ? const []
           : movimentosValidos ?? this.movimentosValidos,
       ultimoCombate: limparCombate ? null : ultimoCombate ?? this.ultimoCombate,
+      ultimoMovimento: limparMovimento
+          ? null
+          : ultimoMovimento ?? this.ultimoMovimento,
       erro: limparErro ? null : erro ?? this.erro,
       conectando: conectando ?? this.conectando,
       nomeUsuario: nomeUsuario ?? this.nomeUsuario,
@@ -123,20 +145,28 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
       // Configura os listeners antes de conectar
       socketService.streamDeEstados.listen((novoEstado) {
-        // Detecta combates comparando estados
+        // Detecta combates e movimentos comparando estados
         final combate = _detectarCombate(state.estadoJogo, novoEstado);
+        final movimento = _detectarMovimento(state.estadoJogo, novoEstado);
 
         if (combate != null) {
           debugPrint(
             '🎯 COMBATE DETECTADO NO PROVIDER: ${combate.atacante.patente.nome} vs ${combate.defensor.patente.nome}',
           );
+        } else if (movimento != null) {
+          debugPrint(
+            '🏃 MOVIMENTO DETECTADO NO PROVIDER: ${movimento.peca.patente.nome} de (${movimento.posicaoInicial.linha}, ${movimento.posicaoInicial.coluna}) para (${movimento.posicaoFinal.linha}, ${movimento.posicaoFinal.coluna})',
+          );
         } else {
-          debugPrint('🔍 Nenhum combate detectado nesta atualização');
+          debugPrint(
+            '🔍 Nenhum combate ou movimento detectado nesta atualização',
+          );
         }
 
         state = state.copyWith(
           estadoJogo: novoEstado,
           ultimoCombate: combate,
+          ultimoMovimento: movimento,
           conectando: false,
           statusConexao: StatusConexao.jogando,
           limparErro: true,
@@ -695,9 +725,55 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
     return null;
   }
 
+  /// Detecta se houve um movimento simples (sem combate)
+  InformacoesMovimento? _detectarMovimento(
+    EstadoJogo? estadoAnterior,
+    EstadoJogo novoEstado,
+  ) {
+    if (estadoAnterior == null) return null;
+
+    // Procura por peças que se moveram
+    for (final pecaNova in novoEstado.pecas) {
+      final pecaAnterior = estadoAnterior.pecas
+          .where((p) => p.id == pecaNova.id)
+          .firstOrNull;
+
+      if (pecaAnterior != null &&
+          (pecaAnterior.posicao.linha != pecaNova.posicao.linha ||
+              pecaAnterior.posicao.coluna != pecaNova.posicao.coluna)) {
+        // Verifica se não havia peça inimiga na posição de destino (movimento simples)
+        final pecaNoDestino = estadoAnterior.pecas
+            .where(
+              (p) =>
+                  p.posicao.linha == pecaNova.posicao.linha &&
+                  p.posicao.coluna == pecaNova.posicao.coluna &&
+                  p.id != pecaAnterior.id,
+            )
+            .firstOrNull;
+
+        if (pecaNoDestino == null) {
+          // Movimento simples sem combate
+          return InformacoesMovimento(
+            peca: pecaAnterior,
+            posicaoInicial: pecaAnterior.posicao,
+            posicaoFinal: pecaNova.posicao,
+            temCombate: false,
+          );
+        }
+      }
+    }
+
+    return null;
+  }
+
   /// Limpa as informações do último combate
   void limparCombate() {
     state = state.copyWith(limparCombate: true);
+  }
+
+  /// Limpa as informações do último movimento
+  void limparMovimento() {
+    state = state.copyWith(limparMovimento: true);
   }
 
   /// Volta para o estado de aguardando oponente após desconexão

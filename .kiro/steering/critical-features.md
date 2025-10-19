@@ -138,6 +138,37 @@ This document outlines the most important features and bug fixes that are essent
 - **Consistent Design**: Matches board piece styling and information system
 - **Clear Visual Hierarchy**: Improved layout for better combat result comprehension
 
+### Advanced Animation System
+
+**Implementation**: Smooth piece movement with visual effects
+
+- **Animated Board Widget**: Integrated animation system directly into the board
+- **Movement Animations**: 800ms smooth transitions with easeOutQuart curve
+- **Dust Trail Effect**: Particle-like dust trail following moving pieces
+- **Dynamic Shadows**: Shadow effects that respond to piece movement
+- **Rotation Effects**: Subtle piece rotation during movement for realism
+- **Background Integration**: Professional board background with subtle grid and transparent lakes
+
+### Combat Detection System
+
+**Implementation**: Robust multi-strategy combat detection
+
+- **Hierarchical Detection**: Multiple fallback strategies for reliable combat identification
+- **Direct Movement Detection**: Primary detection via piece movement tracking
+- **Proximity Revelation**: Secondary detection via revealed pieces near combat zones
+- **Mine Detection**: Specialized detection for landmine encounters
+- **Tie Resolution**: Smart handling of simultaneous piece revelations
+- **Visual Feedback**: Explosion animations and combat dialogs with enhanced piece visibility
+
+### Enhanced Piece Visibility Logic
+
+**Implementation**: Strategic information management
+
+- **Permanent Concealment**: Opponent pieces remain hidden as silhouettes after combat
+- **Selective Revelation**: Only combat participants are temporarily revealed
+- **Strategic Bluffing**: Maintains core game mechanic of hidden information
+- **Visual Consistency**: Clear distinction between own pieces, revealed pieces, and hidden opponents
+
 ## 🔧 Development Guidelines
 
 ### When Adding New Features
