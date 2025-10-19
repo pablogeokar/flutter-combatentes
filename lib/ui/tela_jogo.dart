@@ -122,7 +122,7 @@ class TelaJogo extends ConsumerWidget {
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/images/tela_inicial.jpg',
+              'assets/images/tela_inicial.png',
               fit: BoxFit.cover,
             ),
           ),

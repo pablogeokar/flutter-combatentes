@@ -109,6 +109,35 @@ This document outlines the most important features and bug fixes that are essent
 - Graceful handling of player disconnections
 - Clear indication of whose turn it is
 
+## 🎨 Visual Enhancements (Latest Updates)
+
+### Optimized Piece Display System
+
+**Implementation**: Maximum space utilization for game pieces
+
+- **Board Pieces**: Reduced padding from 8% to 4% (images now occupy 92% of available space)
+- **Combat Dialog**: Increased piece containers from 80x80 to 100x100 pixels with reduced padding
+- **Visual Impact**: 23% larger piece images on board, 25% larger in combat dialogs
+- **Clean Design**: Removed text overlays, information available on-demand only
+
+### Interactive Information System
+
+**Implementation**: Multi-platform tooltip and feedback system
+
+- **Desktop Tooltips**: Hover-activated tooltips showing piece name and strength
+- **Mobile Long-Press**: SnackBar with piece information for touch devices
+- **Smart Content**: Shows full details for own pieces, "Enemy Piece" for opponents
+- **Professional Styling**: Dark background, rounded corners, proper shadows and timing
+
+### Enhanced Combat Visualization
+
+**Implementation**: Improved combat dialog presentation
+
+- **Larger Piece Display**: 25% bigger piece containers (100x100px vs 80x80px)
+- **Better Space Usage**: Reduced internal padding for maximum image visibility
+- **Consistent Design**: Matches board piece styling and information system
+- **Clear Visual Hierarchy**: Improved layout for better combat result comprehension
+
 ## 🔧 Development Guidelines
 
 ### When Adding New Features

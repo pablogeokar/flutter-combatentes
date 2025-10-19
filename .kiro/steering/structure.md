@@ -73,6 +73,21 @@ server/
 - `GameStateNotifier`: Riverpod state notifier
 - WebSocket integration for real-time updates
 
+### UI Components (`ui/`)
+
+- **`peca_widget.dart`**: Optimized game piece widget with tooltip system
+
+  - Maximum space utilization (92% image coverage)
+  - Cross-platform information display (tooltips + long-press)
+  - Smart content based on piece ownership
+  - Professional styling with shadows and animations
+
+- **`tela_jogo.dart`**: Main game screen with enhanced combat dialogs
+  - Improved combat visualization (25% larger piece display)
+  - Comprehensive connection management UI
+  - Real-time game state synchronization
+  - Multi-platform user interaction handling
+
 ### Server (Modular Architecture)
 
 - **Types (`game.types.ts`)**: Shared TypeScript interfaces and enums
