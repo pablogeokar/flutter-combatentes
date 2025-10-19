@@ -356,8 +356,8 @@ class TelaJogo extends ConsumerWidget {
     return Column(
       children: [
         Container(
-          width: 80,
-          height: 80,
+          width: 100,
+          height: 100,
           decoration: BoxDecoration(
             color: peca.equipe == Equipe.preta
                 ? Colors.grey[800]
@@ -374,7 +374,7 @@ class TelaJogo extends ConsumerWidget {
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(4.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
