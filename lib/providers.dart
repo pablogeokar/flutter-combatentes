@@ -143,7 +143,7 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
       });
 
       socketService.streamDeErros.listen((mensagemErro) {
-        state = state.copyWith(erro: mensagemErro);
+        state = state.copyWith(erro: mensagemErro, conectando: false);
       });
 
       socketService.streamDeStatus.listen((novoStatus) {
@@ -156,14 +156,34 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
         if (novoStatus == StatusConexao.oponenteDesconectado) {
           state = state.copyWith(estadoJogo: null, limparSelecao: true);
         }
+
+        // Se houve erro, para de conectar
+        if (novoStatus == StatusConexao.erro) {
+          state = state.copyWith(conectando: false);
+        }
       });
 
-      // Conecta ao servidor
-      socketService.connect('ws://localhost:8083', nomeUsuario: nomeUsuario);
+      // Conecta ao servidor de forma assíncrona (não bloqueia a UI)
+      Future.microtask(() {
+        try {
+          socketService.connect(
+            'ws://localhost:8083',
+            nomeUsuario: nomeUsuario,
+          );
+        } catch (e) {
+          print('Erro ao conectar: $e');
+          state = state.copyWith(
+            conectando: false,
+            statusConexao: StatusConexao.erro,
+            erro: 'Erro ao conectar: $e',
+          );
+        }
+      });
     } catch (e) {
       print('Erro na inicialização: $e');
       state = state.copyWith(
         conectando: false,
+        statusConexao: StatusConexao.erro,
         erro: 'Erro ao inicializar: $e',
       );
     }
