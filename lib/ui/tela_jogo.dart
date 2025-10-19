@@ -139,9 +139,11 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
       appBar: AppBar(
         title: Row(
           children: [
-            const Text(
-              'Combatentes',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            // Logo de texto do jogo
+            Image.asset(
+              'assets/images/combatentes.png',
+              height: 28,
+              fit: BoxFit.contain,
             ),
             if (estadoJogo != null) ...[
               const SizedBox(width: 16),
@@ -149,7 +151,19 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
             ],
           ],
         ),
-        backgroundColor: const Color(0xFF2E7D32).withValues(alpha: 0.9),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('assets/images/bg.png'),
+              fit: BoxFit.cover,
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF2E7D32).withValues(alpha: 0.8),
+            ),
+          ),
+        ),
         foregroundColor: Colors.white,
         actions: [
           // Menu de opções do usuário
@@ -204,10 +218,7 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset(
-              'assets/images/tela_inicial.png',
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset('assets/images/bg.png', fit: BoxFit.cover),
           ),
           // Mostra um indicador de carregamento enquanto conecta ou o estado é nulo
           if (estadoJogo == null)

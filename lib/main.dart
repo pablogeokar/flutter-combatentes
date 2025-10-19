@@ -74,41 +74,84 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF2E7D32), // Verde escuro
-              Color(0xFF4CAF50), // Verde médio
-              Color(0xFF81C784), // Verde claro
-            ],
+          image: DecorationImage(
+            image: AssetImage('assets/images/bg.png'),
+            fit: BoxFit.cover,
           ),
         ),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.military_tech, size: 80, color: Colors.white),
-              SizedBox(height: 24),
-              Text(
-                'COMBATENTES',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 3,
+        child: Container(
+          // Overlay escuro para melhor legibilidade
+          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.4)),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Logo principal do jogo
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      width: 2,
+                    ),
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    height: 120,
+                    fit: BoxFit.contain,
+                  ),
                 ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Jogo de Estratégia Multiplayer',
-                style: TextStyle(fontSize: 16, color: Colors.white70),
-              ),
-              SizedBox(height: 40),
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ],
+
+                const SizedBox(height: 32),
+
+                // Logo de texto
+                Image.asset(
+                  'assets/images/combatentes.png',
+                  height: 60,
+                  fit: BoxFit.contain,
+                ),
+
+                const SizedBox(height: 16),
+
+                // Subtítulo
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Jogo de Estratégia Multiplayer',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 50),
+
+                // Indicador de carregamento
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  child: const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    strokeWidth: 3,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
