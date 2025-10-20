@@ -83,6 +83,8 @@ pnpm run start
 - **Dynamic Shadows**: Shadow positioning based on piece movement direction
 - **Background Integration**: Asset-based board background with transparent overlays
 - **Coordinate Transformation**: Unified coordinate system for animations and game logic
+- **Blood Splatter System**: Multi-layered CustomPainter with realistic blood physics simulation
+- **Combat Feedback**: Intensity-based visual effects that scale with piece importance
 
 ### Performance Optimization
 

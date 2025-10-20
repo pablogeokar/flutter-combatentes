@@ -169,6 +169,18 @@ This document outlines the most important features and bug fixes that are essent
 - **Strategic Bluffing**: Maintains core game mechanic of hidden information
 - **Visual Consistency**: Clear distinction between own pieces, revealed pieces, and hidden opponents
 
+### Blood Splatter Combat Feedback
+
+**Implementation**: Immersive defeat visualization for enhanced player engagement
+
+- **Smart Detection**: Automatically triggers when local player loses a piece in combat
+- **Dynamic Intensity**: Animation intensity scales with the strength of the lost piece (0.5x to 1.5x)
+- **Realistic Animation**: Multi-layered blood splatter with main splash, dripping drops, and small splatters
+- **Tactical Feedback**: Heavy haptic feedback for maximum impact
+- **Performance Optimized**: Custom painter with efficient rendering and automatic cleanup
+- **Visual Elements**: Irregular splash patterns, gravity-affected drips, and fade-out effects
+- **Timing**: 1.2s main animation + 2s drip effects for realistic blood behavior
+
 ### Comprehensive Audio System
 
 **Implementation**: Immersive audio experience with full user control
@@ -178,6 +190,7 @@ This document outlines the most important features and bug fixes that are essent
 - **Combat Audio**: tiro.wav for regular combat encounters
 - **Explosion Effects**: explosao.wav for landmine encounters with visual synchronization
 - **Disarm Effects**: desarme.wav for Engineer successfully disarming landmines with custom animation
+- **Blood Splatter Effects**: Dynamic blood animation when local player loses a piece in combat
 - **Victory/Defeat Audio**: comemoracao.mp3 for wins, derrota_fim.wav for losses
 - **User Controls**: Complete audio settings dialog with music/sound toggles and test buttons
 - **Smart Detection**: Audio triggers based on game state changes and turn detection

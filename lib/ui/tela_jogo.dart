@@ -8,6 +8,7 @@ import './animated_board_widget.dart';
 import './tela_nome_usuario.dart';
 import './explosion_widget.dart';
 import './disarm_widget.dart';
+import './blood_splatter_widget.dart';
 import './audio_settings_dialog.dart';
 import './victory_defeat_screens.dart';
 import './server_config_dialog.dart';
@@ -23,6 +24,7 @@ class TelaJogo extends ConsumerStatefulWidget {
 class _TelaJogoState extends ConsumerState<TelaJogo> {
   final List<ExplosionOverlay> _explosions = [];
   final List<DisarmOverlay> _disarms = [];
+  final List<BloodSplatterOverlay> _bloodSplatters = [];
   final AudioService _audioService = AudioService();
 
   @override
@@ -76,6 +78,9 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
         debugPrint(
           '📺 CHAMANDO DIÁLOGO DE COMBATE: ${next.ultimoCombate!.atacante.patente.nome} vs ${next.ultimoCombate!.defensor.patente.nome}',
         );
+
+        // Verifica se o jogador local perdeu uma peça no combate
+        _checkPlayerDefeat(next.ultimoCombate!, ref);
 
         // Verifica se é combate contra mina terrestre
         if (next.ultimoCombate!.defensor.patente == Patente.minaTerrestre) {
@@ -328,6 +333,8 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
           ..._explosions,
           // Desarmes
           ..._disarms,
+          // Animações de sangue
+          ..._bloodSplatters,
         ],
       ),
     );
@@ -444,6 +451,74 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
       });
     } else {
       debugPrint('❌ Widget não montado, desarme não adicionado');
+    }
+  }
+
+  /// Verifica se o jogador local perdeu uma peça e mostra animação de sangue
+  void _checkPlayerDefeat(InformacoesCombate combate, WidgetRef ref) {
+    final nomeUsuario = ref.read(gameStateProvider).nomeUsuario;
+    if (nomeUsuario == null) return;
+
+    // Determina se alguma peça do jogador local foi derrotada
+    bool jogadorLocalPerdeu = false;
+    PecaJogo? pecaPerdida;
+
+    if (combate.foiEmpate) {
+      // Em caso de empate, verifica se o atacante ou defensor é do jogador local
+      if (_isMinhaEquipe(combate.atacante, nomeUsuario, ref)) {
+        jogadorLocalPerdeu = true;
+        pecaPerdida = combate.atacante;
+      } else if (_isMinhaEquipe(combate.defensor, nomeUsuario, ref)) {
+        jogadorLocalPerdeu = true;
+        pecaPerdida = combate.defensor;
+      }
+    } else if (combate.vencedor != null) {
+      // Verifica se o perdedor é do jogador local
+      final perdedor = combate.vencedor!.id == combate.atacante.id
+          ? combate.defensor
+          : combate.atacante;
+
+      if (_isMinhaEquipe(perdedor, nomeUsuario, ref)) {
+        jogadorLocalPerdeu = true;
+        pecaPerdida = perdedor;
+      }
+    }
+
+    if (jogadorLocalPerdeu && pecaPerdida != null) {
+      debugPrint(
+        '🩸 JOGADOR LOCAL PERDEU: ${pecaPerdida.patente.nome} - Mostrando sangue',
+      );
+
+      // Calcula intensidade baseada na força da peça perdida
+      final intensity = (pecaPerdida.patente.forca / 10.0).clamp(0.5, 1.5);
+
+      _showBloodSplatterEffect(intensity);
+    }
+  }
+
+  /// Mostra o efeito de sangue na tela
+  void _showBloodSplatterEffect(double intensity) {
+    debugPrint('🩸 _showBloodSplatterEffect CHAMADA! Intensidade: $intensity');
+
+    late BloodSplatterOverlay bloodSplatter;
+    bloodSplatter = BloodSplatterOverlay(
+      intensity: intensity,
+      onComplete: () {
+        if (mounted) {
+          setState(() {
+            _bloodSplatters.removeWhere((b) => b == bloodSplatter);
+          });
+        }
+      },
+    );
+
+    if (mounted) {
+      setState(() {
+        _bloodSplatters.add(bloodSplatter);
+        debugPrint('✅ Sangue adicionado! Total: ${_bloodSplatters.length}');
+      });
+    } else {
+      debugPrint('❌ Widget não montado, sangue não adicionado');
     }
   }
 
