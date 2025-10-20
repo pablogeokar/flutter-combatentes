@@ -1,5 +1,5 @@
 import 'package:combatentes/ui/tela_nome_usuario.dart';
-import 'package:combatentes/ui/tela_jogo.dart';
+import 'package:combatentes/ui/game_flow_screen.dart';
 import 'package:combatentes/services/user_preferences.dart';
 import 'package:combatentes/audio_service.dart';
 import 'package:flutter/material.dart';
@@ -56,9 +56,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (mounted) {
       if (hasName) {
-        // Se já tem nome, vai direto para o jogo
+        // Se já tem nome, vai para o fluxo do jogo (que inclui placement)
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const TelaJogo()),
+          MaterialPageRoute(builder: (context) => const GameFlowScreen()),
         );
       } else {
         // Se não tem nome, vai para a tela de nome

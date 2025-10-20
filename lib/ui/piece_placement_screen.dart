@@ -1,0 +1,639 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../modelos_jogo.dart';
+import '../placement_controller.dart';
+import '../piece_inventory.dart';
+import '../providers.dart';
+import 'piece_inventory_widget.dart';
+import 'placement_board_widget.dart';
+import 'placement_status_widget.dart';
+import 'military_theme_widgets.dart';
+
+/// Tela principal de posicionamento de peças.
+/// Integra inventário, tabuleiro e status em um layout responsivo.
+class PiecePlacementScreen extends ConsumerStatefulWidget {
+  /// Estado inicial do posicionamento.
+  final PlacementGameState initialState;
+
+  /// Callback chamado quando o jogo deve iniciar.
+  final VoidCallback? onGameStart;
+
+  /// Callback chamado quando o usuário quer voltar.
+  final VoidCallback? onBack;
+
+  const PiecePlacementScreen({
+    super.key,
+    required this.initialState,
+    this.onGameStart,
+    this.onBack,
+  });
+
+  @override
+  ConsumerState<PiecePlacementScreen> createState() =>
+      _PiecePlacementScreenState();
+}
+
+class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
+    with TickerProviderStateMixin {
+  late PlacementController _controller;
+  late PieceInventory _inventory;
+  Patente? _selectedPieceType;
+  bool _showExitDialog = false;
+
+  // Controllers para animações
+  AnimationController? _fadeController;
+  AnimationController? _slideController;
+  Animation<double>? _fadeAnimation;
+  Animation<Offset>? _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeControllers();
+    _initializeAnimations();
+    _setupInitialState();
+  }
+
+  void _initializeControllers() {
+    // Inicializa o controller de posicionamento
+    // TODO: Integrar com GameSocketService quando disponível
+    _controller = PlacementController(
+      // Placeholder - será substituído pela integração real
+      ref.read(gameSocketProvider),
+    );
+
+    // Configura listener para mudanças de estado
+    _controller.addListener(_onPlacementStateChanged);
+  }
+
+  void _initializeAnimations() {
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController!, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _slideController!,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+
+    // Inicia as animações
+    _fadeController!.forward();
+    _slideController!.forward();
+  }
+
+  void _setupInitialState() {
+    // Cria inventário baseado no estado inicial
+    _inventory = PieceInventory();
+
+    // Configura o estado inicial no controller
+    _controller.updateState(widget.initialState);
+
+    // Remove peças já posicionadas do inventário
+    for (final peca in widget.initialState.placedPieces) {
+      _inventory.removePiece(peca.patente);
+    }
+  }
+
+  void _onPlacementStateChanged() {
+    final state = _controller.currentState;
+    if (state == null) return;
+
+    // Verifica se o jogo deve iniciar
+    if (state.gamePhase == GamePhase.gameInProgress) {
+      widget.onGameStart?.call();
+    }
+
+    // Atualiza o estado local se necessário
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onPlacementStateChanged);
+    _controller.dispose();
+    _fadeController?.dispose();
+    _slideController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _handleBackNavigation();
+        }
+      },
+      child: Scaffold(
+        body: MilitaryThemeWidgets.militaryBackground(
+          child: SafeArea(
+            child: AnimatedBuilder(
+              animation: _fadeAnimation!,
+              builder: (context, child) {
+                return FadeTransition(
+                  opacity: _fadeAnimation!,
+                  child: SlideTransition(
+                    position: _slideAnimation!,
+                    child: _buildContent(),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWideScreen = constraints.maxWidth > 800;
+        final isTablet = constraints.maxWidth > 600;
+
+        if (isWideScreen) {
+          return _buildWideScreenLayout();
+        } else if (isTablet) {
+          return _buildTabletLayout();
+        } else {
+          return _buildMobileLayout();
+        }
+      },
+    );
+  }
+
+  /// Layout para telas largas (desktop/landscape).
+  Widget _buildWideScreenLayout() {
+    return Column(
+      children: [
+        _buildHeader(),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Inventário à esquerda
+                Expanded(flex: 2, child: _buildInventorySection()),
+                const SizedBox(width: 16),
+
+                // Tabuleiro no centro
+                Expanded(flex: 3, child: _buildBoardSection()),
+                const SizedBox(width: 16),
+
+                // Status à direita
+                Expanded(flex: 2, child: _buildStatusSection()),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Layout para tablets.
+  Widget _buildTabletLayout() {
+    return Column(
+      children: [
+        _buildHeader(),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              children: [
+                // Status no topo
+                _buildStatusSection(),
+                const SizedBox(height: 12),
+
+                // Tabuleiro e inventário lado a lado
+                Expanded(
+                  child: Row(
+                    children: [
+                      // Tabuleiro à esquerda
+                      Expanded(flex: 3, child: _buildBoardSection()),
+                      const SizedBox(width: 12),
+
+                      // Inventário à direita
+                      Expanded(flex: 2, child: _buildInventorySection()),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Layout para dispositivos móveis.
+  Widget _buildMobileLayout() {
+    return Column(
+      children: [
+        _buildHeader(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                // Status no topo
+                _buildStatusSection(),
+                const SizedBox(height: 12),
+
+                // Tabuleiro
+                _buildBoardSection(),
+                const SizedBox(height: 12),
+
+                // Inventário na parte inferior
+                _buildInventorySection(),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Constrói o cabeçalho da tela.
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.9),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Botão de voltar
+          IconButton(
+            onPressed: _handleBackNavigation,
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            tooltip: 'Voltar',
+          ),
+          const SizedBox(width: 8),
+
+          // Logo pequeno
+          Image.asset(
+            'assets/images/logo.png',
+            height: 32,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(Icons.military_tech, color: Colors.white);
+            },
+          ),
+          const SizedBox(width: 12),
+
+          // Título
+          const Expanded(
+            child: Text(
+              'Posicionamento de Peças',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+
+          // Indicador de fase
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_getPhaseIcon(), color: Colors.white, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  _getPhaseText(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Constrói a seção do inventário.
+  Widget _buildInventorySection() {
+    return PieceInventoryWidget(
+      inventory: _inventory,
+      selectedPieceType: _selectedPieceType,
+      onPieceSelect: _handlePieceSelect,
+      enabled: _isInteractionEnabled(),
+    );
+  }
+
+  /// Constrói a seção do tabuleiro.
+  Widget _buildBoardSection() {
+    final state = _controller.currentState ?? widget.initialState;
+
+    return PlacementBoardWidget(
+      placedPieces: state.placedPieces,
+      playerArea: state.playerArea,
+      selectedPieceType: _selectedPieceType,
+      inventory: _inventory,
+      playerTeam: _getPlayerTeam(),
+      onPositionTap: _handlePositionTap,
+      onPieceDrag: _handlePieceDrag,
+      onPieceRemove: _handlePieceRemove,
+      enabled: _isInteractionEnabled(),
+    );
+  }
+
+  /// Constrói a seção de status.
+  Widget _buildStatusSection() {
+    final state = _controller.currentState ?? widget.initialState;
+
+    return PlacementStatusWidget(
+      localPiecesRemaining: _inventory.totalPiecesRemaining,
+      opponentStatus: state.opponentStatus,
+      canConfirm:
+          _inventory.isEmpty && state.localStatus == PlacementStatus.placing,
+      localStatus: state.localStatus,
+      onReadyPressed: _handleReadyPressed,
+      isGameStarting: _controller.isGameStarting,
+      countdownSeconds: _controller.countdownSeconds,
+    );
+  }
+
+  /// Manipula a seleção de uma peça do inventário.
+  void _handlePieceSelect(Patente patente) {
+    if (!_isInteractionEnabled()) return;
+
+    setState(() {
+      _selectedPieceType = _selectedPieceType == patente ? null : patente;
+    });
+  }
+
+  /// Manipula o tap em uma posição do tabuleiro.
+  void _handlePositionTap(PosicaoTabuleiro position) {
+    if (!_isInteractionEnabled() || _selectedPieceType == null) return;
+
+    _placePieceAtPosition(_selectedPieceType!, position);
+  }
+
+  /// Manipula o drag de uma peça para nova posição.
+  void _handlePieceDrag(String pieceId, PosicaoTabuleiro newPosition) {
+    if (!_isInteractionEnabled()) return;
+
+    final state = _controller.currentState ?? widget.initialState;
+    final piece = state.placedPieces.where((p) => p.id == pieceId).firstOrNull;
+
+    if (piece != null) {
+      // Remove a peça da posição atual
+      _removePieceFromBoard(pieceId);
+
+      // Posiciona na nova posição
+      _placePieceAtPosition(piece.patente, newPosition);
+    }
+  }
+
+  /// Manipula a remoção de uma peça do tabuleiro.
+  void _handlePieceRemove(String pieceId) {
+    if (!_isInteractionEnabled()) return;
+
+    _removePieceFromBoard(pieceId);
+  }
+
+  /// Manipula o pressionamento do botão "PRONTO".
+  void _handleReadyPressed() {
+    if (!_inventory.isEmpty) return;
+
+    _controller.confirmPlacement();
+  }
+
+  /// Manipula a navegação de volta.
+  void _handleBackNavigation() {
+    if (_showExitDialog) return;
+
+    _showExitConfirmationDialog();
+  }
+
+  /// Posiciona uma peça em uma posição específica.
+  void _placePieceAtPosition(Patente patente, PosicaoTabuleiro position) {
+    if (!_inventory.isAvailable(patente)) return;
+
+    final state = _controller.currentState ?? widget.initialState;
+
+    // Verifica se há peça na posição (para troca)
+    final existingPiece = state.placedPieces
+        .where(
+          (p) =>
+              p.posicao.linha == position.linha &&
+              p.posicao.coluna == position.coluna,
+        )
+        .firstOrNull;
+
+    if (existingPiece != null) {
+      // Troca de posições - devolve a peça existente ao inventário
+      _inventory.addPiece(existingPiece.patente);
+    }
+
+    // Remove a nova peça do inventário
+    _inventory.removePiece(patente);
+
+    // Cria nova peça
+    final newPiece = PecaJogo(
+      id: 'piece_${DateTime.now().millisecondsSinceEpoch}',
+      patente: patente,
+      posicao: position,
+      equipe: _getPlayerTeam(),
+      foiRevelada: false,
+    );
+
+    // Atualiza o estado
+    final updatedPieces =
+        state.placedPieces
+            .where(
+              (p) =>
+                  !(p.posicao.linha == position.linha &&
+                      p.posicao.coluna == position.coluna),
+            )
+            .toList()
+          ..add(newPiece);
+
+    final updatedState = PlacementGameState(
+      gameId: state.gameId,
+      playerId: state.playerId,
+      availablePieces: _inventory.availablePieces,
+      placedPieces: updatedPieces,
+      playerArea: state.playerArea,
+      localStatus: state.localStatus,
+      opponentStatus: state.opponentStatus,
+      selectedPieceType: _selectedPieceType,
+      gamePhase: state.gamePhase,
+    );
+
+    _controller.updateState(updatedState);
+
+    // Limpa seleção se não há mais peças deste tipo
+    if (!_inventory.isAvailable(patente)) {
+      setState(() {
+        _selectedPieceType = null;
+      });
+    }
+
+    setState(() {});
+  }
+
+  /// Remove uma peça do tabuleiro.
+  void _removePieceFromBoard(String pieceId) {
+    final state = _controller.currentState ?? widget.initialState;
+    final piece = state.placedPieces.where((p) => p.id == pieceId).firstOrNull;
+
+    if (piece == null) return;
+
+    // Devolve a peça ao inventário
+    _inventory.addPiece(piece.patente);
+
+    // Remove do tabuleiro
+    final updatedPieces = state.placedPieces
+        .where((p) => p.id != pieceId)
+        .toList();
+
+    final updatedState = PlacementGameState(
+      gameId: state.gameId,
+      playerId: state.playerId,
+      availablePieces: _inventory.availablePieces,
+      placedPieces: updatedPieces,
+      playerArea: state.playerArea,
+      localStatus: state.localStatus,
+      opponentStatus: state.opponentStatus,
+      selectedPieceType: _selectedPieceType,
+      gamePhase: state.gamePhase,
+    );
+
+    _controller.updateState(updatedState);
+    setState(() {});
+  }
+
+  /// Verifica se a interação está habilitada.
+  bool _isInteractionEnabled() {
+    final state = _controller.currentState ?? widget.initialState;
+    return state.localStatus == PlacementStatus.placing &&
+        !_controller.isGameStarting;
+  }
+
+  /// Retorna a equipe do jogador.
+  Equipe _getPlayerTeam() {
+    final state = _controller.currentState ?? widget.initialState;
+    // Determina a equipe baseada na área do jogador
+    return state.playerArea.contains(0) ? Equipe.verde : Equipe.preta;
+  }
+
+  /// Retorna o ícone da fase atual.
+  IconData _getPhaseIcon() {
+    final state = _controller.currentState ?? widget.initialState;
+
+    if (_controller.isGameStarting) {
+      return Icons.rocket_launch;
+    }
+
+    switch (state.gamePhase) {
+      case GamePhase.piecePlacement:
+        return Icons.place;
+      case GamePhase.waitingForOpponentReady:
+        return Icons.hourglass_empty;
+      case GamePhase.gameStarting:
+        return Icons.rocket_launch;
+      default:
+        return Icons.military_tech;
+    }
+  }
+
+  /// Retorna o texto da fase atual.
+  String _getPhaseText() {
+    final state = _controller.currentState ?? widget.initialState;
+
+    if (_controller.isGameStarting) {
+      return 'Iniciando...';
+    }
+
+    switch (state.gamePhase) {
+      case GamePhase.piecePlacement:
+        return 'Posicionamento';
+      case GamePhase.waitingForOpponentReady:
+        return 'Aguardando';
+      case GamePhase.gameStarting:
+        return 'Iniciando...';
+      default:
+        return 'Preparação';
+    }
+  }
+
+  /// Mostra o diálogo de confirmação de saída.
+  void _showExitConfirmationDialog() {
+    setState(() {
+      _showExitDialog = true;
+    });
+
+    MilitaryThemeWidgets.showMilitaryDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      title: 'Sair do Posicionamento',
+      titleIcon: Icons.exit_to_app,
+      content: const Text(
+        'Tem certeza que deseja sair? Seu progresso será perdido e você retornará à busca por oponente.',
+        style: TextStyle(color: Colors.black87),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop(false);
+            setState(() {
+              _showExitDialog = false;
+            });
+          },
+          child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+        ),
+        MilitaryThemeWidgets.militaryButton(
+          text: 'Sair',
+          onPressed: () {
+            Navigator.of(context).pop(true);
+            setState(() {
+              _showExitDialog = false;
+            });
+            widget.onBack?.call();
+          },
+          icon: Icons.exit_to_app,
+        ),
+      ],
+    ).then((confirmed) {
+      if (confirmed != true) {
+        setState(() {
+          _showExitDialog = false;
+        });
+      }
+    });
+  }
+}
