@@ -202,8 +202,11 @@ export class GameController {
     atacante: PecaJogo,
     defendida: PecaJogo
   ): ResultadoCombate {
-    // Regra especial: Agente Secreto vs General
-    if (atacante.patente === "agenteSecreto" && defendida.patente === "general")
+    // Regra especial: Agente Secreto vs Marechal
+    if (
+      atacante.patente === "agenteSecreto" &&
+      defendida.patente === "marechal"
+    )
       return { vencedor: atacante, perdedor: defendida };
 
     // Regra especial: Mina Terrestre

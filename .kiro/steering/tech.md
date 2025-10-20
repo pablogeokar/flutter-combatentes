@@ -146,6 +146,7 @@ assets/sounds/
 - **Asset Integration**: Strategic use of logo.png, combatentes.png, and bg.png across interfaces
 - **Color Consistency**: Military green palette (#2E7D32, #4CAF50, #81C784) with proper contrast ratios
 - **Responsive Layouts**: Adaptive design patterns that scale across different screen sizes
+- **Complete Army**: 40 pieces per player with proper military hierarchy including Marshal rank
 
 ### Visual Asset Structure
 

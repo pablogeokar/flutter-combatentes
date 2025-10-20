@@ -5,10 +5,25 @@
 ## Core Gameplay
 
 - Two-player turn-based strategy game on a 10x10 board
-- Each player controls an army with pieces of different military ranks (from Prisoner to General)
+- Each player controls an army of 40 pieces with different military ranks (from Prisoner to Marshal)
 - Players move pieces to attack opponents and capture the enemy flag (Prisoner piece)
-- Special combat rules: Spy can defeat General, Engineer can defuse mines
+- Special combat rules: Spy can defeat Marshal, Engineer can defuse mines
 - Victory conditions: capture enemy flag or eliminate all mobile enemy pieces
+
+## Army Composition (40 pieces per player)
+
+- **Marshal** (1): Highest ranking officer (Strength 10)
+- **General** (1): Second highest rank (Strength 9)
+- **Colonel** (2): Senior officers (Strength 8)
+- **Major** (3): Field officers (Strength 7)
+- **Captain** (4): Company commanders (Strength 6)
+- **Lieutenant** (4): Platoon leaders (Strength 5)
+- **Sergeant** (4): Squad leaders (Strength 4)
+- **Corporal** (5): Team leaders (Strength 3)
+- **Soldier** (8): Basic infantry (Strength 2)
+- **Spy** (1): Special operative (Strength 1, defeats Marshal)
+- **Prisoner** (1): The flag to capture (Strength 0)
+- **Landmine** (6): Immobile traps (Strength 11, defeated only by Engineer)
 
 ## Technical Architecture
 

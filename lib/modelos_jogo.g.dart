@@ -42,6 +42,7 @@ const _$PatenteEnumMap = {
   Patente.major: 'major',
   Patente.coronel: 'coronel',
   Patente.general: 'general',
+  Patente.marechal: 'marechal',
   Patente.minaTerrestre: 'minaTerrestre',
 };
 

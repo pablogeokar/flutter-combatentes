@@ -28,14 +28,15 @@ export class GameStateManager {
   private static createInitialPieces(): PecaJogo[] {
     const pecas: PecaJogo[] = [];
     const contagemPecas: { [key: string]: number } = {
+      marechal: 1,
       general: 1,
-      coronel: 1,
-      major: 2,
-      capitao: 3,
+      coronel: 2,
+      major: 3,
+      capitao: 4,
       tenente: 4,
       sargento: 4,
-      cabo: 4,
-      soldado: 5,
+      cabo: 5,
+      soldado: 8,
       agenteSecreto: 1,
       prisioneiro: 1,
       minaTerrestre: 6,

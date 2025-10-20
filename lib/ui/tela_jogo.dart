@@ -576,8 +576,8 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
 
       // Adiciona informações sobre regras especiais
       if (combate.atacante.patente == Patente.agenteSecreto &&
-          combate.defensor.patente == Patente.general) {
-        mensagem += "\n\n🕵️ Agente Secreto eliminou o General!";
+          combate.defensor.patente == Patente.marechal) {
+        mensagem += "\n\n🕵️ Agente Secreto eliminou o Marechal!";
       } else if (combate.defensor.patente == Patente.minaTerrestre) {
         if (combate.atacante.patente == Patente.cabo) {
           mensagem += "\n\n💣 Cabo desativou a Mina Terrestre!";

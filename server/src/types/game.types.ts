@@ -21,7 +21,8 @@ export const Patentes: { [key: string]: Patente } = {
   capitao: { id: "capitao", forca: 6, nome: "Capitão" },
   major: { id: "major", forca: 7, nome: "Major" },
   coronel: { id: "coronel", forca: 8, nome: "Coronel" },
-  general: { id: "general", forca: 10, nome: "General" },
+  general: { id: "general", forca: 9, nome: "General" },
+  marechal: { id: "marechal", forca: 10, nome: "Marechal" },
   minaTerrestre: { id: "minaTerrestre", forca: 11, nome: "Mina Terrestre" },
 };
 

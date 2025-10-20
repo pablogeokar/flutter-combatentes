@@ -24,7 +24,8 @@ enum Patente {
   capitao(forca: 6, nome: "Capitão"),
   major(forca: 7, nome: "Major"),
   coronel(forca: 8, nome: "Coronel"),
-  general(forca: 10, nome: "General"),
+  general(forca: 9, nome: "General"),
+  marechal(forca: 10, nome: "Marechal"),
   minaTerrestre(forca: 11, nome: "Mina Terrestre");
 
   /// A força da patente, usada para determinar o vencedor de um combate.
@@ -58,6 +59,8 @@ enum Patente {
         return 'assets/images/pecas/coronel.png';
       case Patente.general:
         return 'assets/images/pecas/general.png';
+      case Patente.marechal:
+        return 'assets/images/pecas/marechal.png';
       case Patente.minaTerrestre:
         return 'assets/images/pecas/minaTerrestre.png';
     }

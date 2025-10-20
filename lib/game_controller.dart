@@ -466,9 +466,9 @@ class GameController {
     final forcaAtacante = atacante.patente.forca;
     final forcaDefendida = defendida.patente.forca;
 
-    // Regra especial: Agente Secreto vs General
+    // Regra especial: Agente Secreto vs Marechal
     if (atacante.patente == Patente.agenteSecreto &&
-        defendida.patente == Patente.general) {
+        defendida.patente == Patente.marechal) {
       return _ResultadoCombate(vencedor: atacante, perdedor: defendida);
     }
 
