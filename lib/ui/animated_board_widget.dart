@@ -394,29 +394,7 @@ class _AnimatedBoardWidgetState extends State<AnimatedBoardWidget>
       ),
       child: Padding(
         padding: const EdgeInsets.all(4.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Expanded(flex: 3, child: _buildPieceImage(peca, mostrarInfo)),
-            if (mostrarInfo)
-              Expanded(
-                flex: 1,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    peca.patente.nome,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 8,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                  ),
-                ),
-              ),
-          ],
-        ),
+        child: _buildPieceImage(peca, mostrarInfo),
       ),
     );
   }
