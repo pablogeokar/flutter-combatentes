@@ -8,12 +8,13 @@ part 'piece_inventory.g.dart';
 @JsonSerializable()
 class PieceInventory {
   /// Mapa de peças disponíveis (patente -> quantidade).
-  final Map<String, int> _availablePieces;
+  @JsonKey(name: 'availablePieces')
+  final Map<String, int> availablePieces;
 
   /// Construtor que inicializa o inventário com as quantidades padrão.
-  PieceInventory({Map<String, int>? initialPieces})
-    : _availablePieces = Map<String, int>.from(
-        initialPieces ?? _createDefaultInventory(),
+  PieceInventory({Map<String, int>? availablePieces})
+    : availablePieces = Map<String, int>.from(
+        availablePieces ?? _createDefaultInventory(),
       );
 
   /// Cria o inventário padrão com 40 peças total seguindo as regras do Stratego.
@@ -35,12 +36,12 @@ class PieceInventory {
   }
 
   /// Retorna uma cópia do mapa de peças disponíveis.
-  Map<String, int> get availablePieces =>
-      Map<String, int>.from(_availablePieces);
+  Map<String, int> get availablePiecesMap =>
+      Map<String, int>.from(availablePieces);
 
   /// Retorna a quantidade disponível de uma patente específica.
   int getAvailableCount(Patente patente) {
-    return _availablePieces[patente.name] ?? 0;
+    return availablePieces[patente.name] ?? 0;
   }
 
   /// Verifica se uma patente específica está disponível para posicionamento.
@@ -53,7 +54,7 @@ class PieceInventory {
   bool removePiece(Patente patente) {
     final currentCount = getAvailableCount(patente);
     if (currentCount > 0) {
-      _availablePieces[patente.name] = currentCount - 1;
+      availablePieces[patente.name] = currentCount - 1;
       return true;
     }
     return false;
@@ -66,7 +67,7 @@ class PieceInventory {
     final maxCount = _getMaxCountForPatente(patente);
 
     if (currentCount < maxCount) {
-      _availablePieces[patente.name] = currentCount + 1;
+      availablePieces[patente.name] = currentCount + 1;
       return true;
     }
     return false;
@@ -80,7 +81,7 @@ class PieceInventory {
 
   /// Retorna o número total de peças restantes no inventário.
   int get totalPiecesRemaining {
-    return _availablePieces.values.fold(0, (sum, count) => sum + count);
+    return availablePieces.values.fold(0, (sum, count) => sum + count);
   }
 
   /// Verifica se todas as peças foram posicionadas (inventário vazio).
@@ -127,13 +128,13 @@ class PieceInventory {
 
   /// Reseta o inventário para o estado inicial com todas as 40 peças.
   void reset() {
-    _availablePieces.clear();
-    _availablePieces.addAll(_createDefaultInventory());
+    availablePieces.clear();
+    availablePieces.addAll(_createDefaultInventory());
   }
 
   /// Cria uma cópia do inventário atual.
   PieceInventory copy() {
-    return PieceInventory(initialPieces: _availablePieces);
+    return PieceInventory(availablePieces: availablePieces);
   }
 
   /// Retorna uma representação em string do inventário para debug.

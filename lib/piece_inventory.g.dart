@@ -7,7 +7,11 @@ part of 'piece_inventory.dart';
 // **************************************************************************
 
 PieceInventory _$PieceInventoryFromJson(Map<String, dynamic> json) =>
-    PieceInventory();
+    PieceInventory(
+      availablePieces: (json['availablePieces'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, (e as num).toInt()),
+      ),
+    );
 
 Map<String, dynamic> _$PieceInventoryToJson(PieceInventory instance) =>
-    <String, dynamic>{};
+    <String, dynamic>{'availablePieces': instance.availablePieces};

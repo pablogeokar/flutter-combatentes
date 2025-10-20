@@ -37,9 +37,12 @@ class PlacementScreenState {
     bool? shouldNavigateToGame,
     bool? isRetrying,
     bool clearError = false,
+    bool clearPlacementState = false,
   }) {
     return PlacementScreenState(
-      placementState: placementState ?? this.placementState,
+      placementState: clearPlacementState
+          ? null
+          : (placementState ?? this.placementState),
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : error ?? this.error,
       shouldNavigateToGame: shouldNavigateToGame ?? this.shouldNavigateToGame,
@@ -212,7 +215,7 @@ class PlacementStateNotifier extends StateNotifier<PlacementScreenState> {
   /// Reseta o estado para voltar ao jogo normal.
   void resetToGame() {
     state = state.copyWith(
-      placementState: null,
+      clearPlacementState: true,
       shouldNavigateToGame: false,
       clearError: true,
     );
