@@ -429,6 +429,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
   void _handlePieceSelect(Patente patente) {
     if (!_isInteractionEnabled()) return;
 
+    // Atualiza atividade de rede para evitar timeout
+    _controller.updateNetworkActivity();
+
     setState(() {
       _selectedPieceType = _selectedPieceType == patente ? null : patente;
     });
@@ -437,6 +440,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
   /// Manipula o tap em uma posição do tabuleiro.
   void _handlePositionTap(PosicaoTabuleiro position) {
     if (!_isInteractionEnabled() || _selectedPieceType == null) return;
+
+    // Atualiza atividade de rede para evitar timeout
+    _controller.updateNetworkActivity();
 
     // Valida a operação antes de executar
     final validation = _controller.validatePiecePlacement(
@@ -456,6 +462,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
   void _handlePieceDrag(String pieceId, PosicaoTabuleiro newPosition) {
     if (!_isInteractionEnabled()) return;
 
+    // Atualiza atividade de rede para evitar timeout
+    _controller.updateNetworkActivity();
+
     final state = _controller.currentState ?? widget.initialState;
     final piece = state.placedPieces.where((p) => p.id == pieceId).firstOrNull;
 
@@ -471,6 +480,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
   /// Manipula a remoção de uma peça do tabuleiro.
   void _handlePieceRemove(String pieceId) {
     if (!_isInteractionEnabled()) return;
+
+    // Atualiza atividade de rede para evitar timeout
+    _controller.updateNetworkActivity();
 
     _removePieceFromBoard(pieceId);
   }

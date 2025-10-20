@@ -35,8 +35,8 @@ class PlacementController extends ChangeNotifier {
   /// Timestamp da última atividade de rede.
   DateTime? _lastNetworkActivity;
 
-  /// Timeout para considerar desconexão (30 segundos).
-  static const Duration _connectionTimeout = Duration(seconds: 30);
+  /// Timeout para considerar desconexão (2 minutos durante posicionamento).
+  static const Duration _connectionTimeout = Duration(minutes: 2);
 
   /// Timeout para aguardar reconexão do oponente (60 segundos).
   static const Duration _opponentReconnectionTimeout = Duration(seconds: 60);
@@ -68,8 +68,12 @@ class PlacementController extends ChangeNotifier {
       },
     );
 
-    // Inicia watchdog de conexão
-    _startConnectionWatchdog();
+    // Inicia watchdog de conexão com delay para dar tempo de inicialização
+    Future.delayed(const Duration(seconds: 30), () {
+      if (!_isReconnecting) {
+        _startConnectionWatchdog();
+      }
+    });
   }
 
   /// Manipula atualizações de estado do jogo.
@@ -139,6 +143,9 @@ class PlacementController extends ChangeNotifier {
   /// Atualiza o estado do posicionamento.
   void updateState(PlacementGameState newState) {
     _currentState = newState;
+
+    // Atualiza atividade de rede para evitar timeout falso
+    _lastNetworkActivity = DateTime.now();
 
     // Salva estado automaticamente
     _saveCurrentState();
@@ -470,6 +477,9 @@ class PlacementController extends ChangeNotifier {
       );
     }
 
+    // Atualiza atividade de rede para mostrar que o usuário está ativo
+    _lastNetworkActivity = DateTime.now();
+
     // Convert String keys to Patente enum for validation
     final availablePiecesEnum = <Patente, int>{};
     _currentState!.availablePieces.forEach((key, value) {
@@ -494,6 +504,9 @@ class PlacementController extends ChangeNotifier {
     required PosicaoTabuleiro position,
     required Patente pieceType,
   }) {
+    // Atualiza atividade de rede para mostrar que o usuário está ativo
+    _lastNetworkActivity = DateTime.now();
+
     // Valida a operação
     final validation = validatePiecePlacement(
       position: position,
@@ -567,13 +580,19 @@ class PlacementController extends ChangeNotifier {
     _connectionWatchdog?.cancel();
     _lastNetworkActivity = DateTime.now();
 
-    _connectionWatchdog = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _connectionWatchdog = Timer.periodic(const Duration(seconds: 10), (timer) {
       if (_currentState != null && _lastNetworkActivity != null) {
         final timeSinceLastActivity = DateTime.now().difference(
           _lastNetworkActivity!,
         );
 
-        if (timeSinceLastActivity > _connectionTimeout) {
+        // Durante o posicionamento, usa timeout mais longo
+        final timeoutDuration =
+            _currentState!.gamePhase == GamePhase.piecePlacement
+            ? const Duration(minutes: 5) // 5 minutos durante posicionamento
+            : _connectionTimeout; // 2 minutos durante jogo normal
+
+        if (timeSinceLastActivity > timeoutDuration) {
           _handleConnectionTimeout();
         }
       }
@@ -606,8 +625,30 @@ class PlacementController extends ChangeNotifier {
   /// Manipula timeout de conexão.
   void _handleConnectionTimeout() {
     if (_currentState != null && !_isReconnecting) {
-      debugPrint('Timeout de conexão detectado durante posicionamento');
-      _handleDisconnection();
+      // Durante o posicionamento, seja mais conservador com timeouts
+      if (_currentState!.gamePhase == GamePhase.piecePlacement) {
+        debugPrint(
+          'Timeout de conexão detectado durante posicionamento - verificando se é necessário reconectar',
+        );
+
+        // Só considera desconexão se realmente passou muito tempo sem atividade
+        final timeSinceLastActivity = DateTime.now().difference(
+          _lastNetworkActivity!,
+        );
+        if (timeSinceLastActivity > const Duration(minutes: 10)) {
+          debugPrint('Timeout confirmado - iniciando processo de reconexão');
+          _handleDisconnection();
+        } else {
+          debugPrint(
+            'Timeout ignorado - usuário ainda pode estar posicionando peças',
+          );
+          // Atualiza a atividade para dar mais tempo
+          _lastNetworkActivity = DateTime.now();
+        }
+      } else {
+        debugPrint('Timeout de conexão detectado durante jogo');
+        _handleDisconnection();
+      }
     }
   }
 
@@ -864,6 +905,11 @@ class PlacementController extends ChangeNotifier {
 
   /// Se está tentando reconectar.
   bool get isReconnecting => _isReconnecting;
+
+  /// Atualiza a atividade de rede para evitar timeout durante interação do usuário.
+  void updateNetworkActivity() {
+    _lastNetworkActivity = DateTime.now();
+  }
 
   /// Força uma tentativa manual de reconexão.
   Future<bool> attemptManualReconnection() async {
