@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/user_preferences.dart';
 import 'tela_jogo.dart';
 import 'military_theme_widgets.dart';
+import 'tela_configuracao_servidor.dart';
 
 /// Tela para o usuário inserir seu nome
 class TelaNomeUsuario extends StatefulWidget {
@@ -62,6 +63,12 @@ class _TelaNomeUsuarioState extends State<TelaNomeUsuario> {
     }
   }
 
+  Future<void> _showServerConfig() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const TelaConfiguracaoServidor()),
+    );
+  }
+
   @override
   void dispose() {
     _nomeController.dispose();
@@ -116,6 +123,17 @@ class _TelaNomeUsuarioState extends State<TelaNomeUsuario> {
                         icon: Icons.play_arrow,
                         isLoading: _isLoading,
                         width: double.infinity,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Botão de configuração do servidor
+                      TextButton.icon(
+                        onPressed: _isLoading ? null : _showServerConfig,
+                        icon: const Icon(Icons.dns, size: 18),
+                        label: const Text('Configurar Servidor'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.grey[600],
+                        ),
                       ),
                       const SizedBox(height: 16),
 

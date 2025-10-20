@@ -9,6 +9,7 @@ import './tela_nome_usuario.dart';
 import './explosion_widget.dart';
 import './audio_settings_dialog.dart';
 import './victory_defeat_screens.dart';
+import './tela_configuracao_servidor.dart';
 
 /// A tela principal do jogo, agora como um ConsumerStatefulWidget que reage às mudanças de estado do Riverpod.
 class TelaJogo extends ConsumerStatefulWidget {
@@ -189,6 +190,16 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
                     const Icon(Icons.volume_up, size: 20),
                     const SizedBox(width: 8),
                     Text('Configurações de Áudio'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'server_config',
+                child: Row(
+                  children: [
+                    const Icon(Icons.dns, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Configurar Servidor'),
                   ],
                 ),
               ),
@@ -491,11 +502,11 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
               // Limpa as informações do combate
               ref.read(gameStateProvider.notifier).limparCombate();
             },
-            child: Text('Continuar'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Color(0xFF2E7D32),
               foregroundColor: Colors.white,
             ),
+            child: Text('Continuar'),
           ),
         ],
       ),
@@ -764,6 +775,9 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
       case 'audio_settings':
         _showAudioSettingsDialog(context);
         break;
+      case 'server_config':
+        _showServerConfigDialog(context, ref);
+        break;
       case 'clear_name':
         _showClearNameDialog(context, ref);
         break;
@@ -782,36 +796,16 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     );
   }
 
-  /// Testa a tela de vitória
-  void _testVictoryScreen(BuildContext context, WidgetRef ref) {
-    final nomeUsuario = ref.read(gameStateProvider).nomeUsuario ?? 'Jogador';
-    _audioService.stopBackgroundMusic();
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => VictoryScreen(
-          playerName: nomeUsuario,
-          onPlayAgain: () => Navigator.of(context).pop(),
-          onMainMenu: () => Navigator.of(context).pop(),
-        ),
-      ),
+  /// Mostra tela de configuração do servidor
+  void _showServerConfigDialog(BuildContext context, WidgetRef ref) async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (context) => const TelaConfiguracaoServidor()),
     );
-  }
 
-  /// Testa a tela de derrota
-  void _testDefeatScreen(BuildContext context, WidgetRef ref) {
-    final nomeUsuario = ref.read(gameStateProvider).nomeUsuario ?? 'Jogador';
-    _audioService.stopBackgroundMusic();
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => DefeatScreen(
-          playerName: nomeUsuario,
-          onPlayAgain: () => Navigator.of(context).pop(),
-          onMainMenu: () => Navigator.of(context).pop(),
-        ),
-      ),
-    );
+    // Se o usuário salvou uma nova configuração, reconecta
+    if (result == true && mounted) {
+      ref.read(gameStateProvider.notifier).reconnect();
+    }
   }
 
   /// Mostra diálogo para alterar nome

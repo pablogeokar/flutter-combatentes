@@ -202,12 +202,10 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
       });
 
       // Conecta ao servidor de forma assíncrona (não bloqueia a UI)
-      Future.microtask(() {
+      Future.microtask(() async {
         try {
-          socketService.connect(
-            'ws://localhost:8083',
-            nomeUsuario: nomeUsuario,
-          );
+          final serverAddress = await UserPreferences.getServerAddress();
+          socketService.connect(serverAddress, nomeUsuario: nomeUsuario);
         } catch (e) {
           state = state.copyWith(
             conectando: false,
@@ -825,7 +823,8 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
       // Tenta reconectar
       final socketService = _ref.read(gameSocketProvider);
-      socketService.reconnect('ws://localhost:8083', nomeUsuario: nomeUsuario);
+      final serverAddress = await UserPreferences.getServerAddress();
+      socketService.reconnect(serverAddress, nomeUsuario: nomeUsuario);
     } catch (e) {
       state = state.copyWith(conectando: false, erro: 'Erro ao reconectar: $e');
     }
