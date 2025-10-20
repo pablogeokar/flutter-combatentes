@@ -44,13 +44,13 @@ export class GameSessionManager {
 
     this.pendingClient = null;
 
-    console.log(`Partida iniciada entre ${player1.id} e ${player2.id}`);
+    console.log(`Partida iniciada entre ${player1.nome} e ${player2.nome}`);
 
     const gameId = uuidv4();
     const estadoInicial = GameStateManager.createInitialGameState(
       gameId,
-      player1,
-      player2
+      { id: player1.id, nome: player1.nome, equipe: player1.equipe },
+      { id: player2.id, nome: player2.nome, equipe: player2.equipe }
     );
 
     const session: GameSession = {
