@@ -63,9 +63,6 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
   /// Peça sendo arrastada atualmente.
   String? _draggingPieceId;
 
-  /// Posição inicial da peça sendo arrastada (para futuras funcionalidades).
-  PosicaoTabuleiro? _dragStartPosition;
-
   /// Controller para animações de feedback visual.
   AnimationController? _feedbackController;
 
@@ -240,7 +237,7 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
       width: cellSize,
       height: cellSize,
       child: DragTarget<String>(
-        onWillAccept: (data) {
+        onWillAcceptWithDetails: (details) {
           final validation = _validateDropPosition(position);
           setState(() {
             _highlightedPosition = position;
@@ -254,15 +251,15 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
           });
           return validation.isValid;
         },
-        onLeave: (data) {
+        onLeave: (details) {
           setState(() {
             _highlightedPosition = null;
             _errorPosition = null;
             _errorMessage = null;
           });
         },
-        onAccept: (pieceId) {
-          _handlePieceDrop(pieceId, position);
+        onAcceptWithDetails: (details) {
+          _handlePieceDrop(details.data, position);
           setState(() {
             _highlightedPosition = null;
             _errorPosition = null;
@@ -353,13 +350,11 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
         onDragStarted: () {
           setState(() {
             _draggingPieceId = peca.id;
-            _dragStartPosition = peca.posicao;
           });
         },
         onDragEnd: (details) {
           setState(() {
             _draggingPieceId = null;
-            _dragStartPosition = null;
             _highlightedPosition = null;
           });
         },
@@ -540,40 +535,6 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
         errorMessage: result.error!.userMessage,
       );
     }
-  }
-
-  /// Verifica se uma posição é válida para drop (versão simplificada).
-  bool _isValidDropPosition(PosicaoTabuleiro position) {
-    return _validateDropPosition(position).isValid;
-  }
-
-  /// Verifica se uma posição é um lago.
-  bool _isLakePosition(PosicaoTabuleiro position) {
-    final lakes = [
-      const PosicaoTabuleiro(linha: 4, coluna: 2),
-      const PosicaoTabuleiro(linha: 4, coluna: 3),
-      const PosicaoTabuleiro(linha: 5, coluna: 2),
-      const PosicaoTabuleiro(linha: 5, coluna: 3),
-      const PosicaoTabuleiro(linha: 4, coluna: 6),
-      const PosicaoTabuleiro(linha: 4, coluna: 7),
-      const PosicaoTabuleiro(linha: 5, coluna: 6),
-      const PosicaoTabuleiro(linha: 5, coluna: 7),
-    ];
-
-    return lakes.any(
-      (lake) => lake.linha == position.linha && lake.coluna == position.coluna,
-    );
-  }
-
-  /// Retorna a peça em uma posição específica.
-  PecaJogo? _getPieceAtPosition(PosicaoTabuleiro position) {
-    return widget.placedPieces
-        .where(
-          (piece) =>
-              piece.posicao.linha == position.linha &&
-              piece.posicao.coluna == position.coluna,
-        )
-        .firstOrNull;
   }
 
   /// Manipula o tap em uma posição do tabuleiro.

@@ -149,16 +149,17 @@
     - Test error handling and recovery mechanisms
     - _Requirements: 7.1, 7.2, 6.5_
 
-  - [ ]\* 9.2 Create integration tests for client-server placement flow
+  - [x] 9.2 Create integration tests for client-server placement flow
+
     - Test complete placement flow from start to game begin
     - Test multi-player synchronization and ready states
     - Test disconnection and reconnection scenarios
     - Test error scenarios and recovery flows
     - _Requirements: 3.4, 4.3, 6.1, 6.4_
 
-- [ ] 10. Optimize performance and add polish features
+- [x] 10. Optimize performance and add polish features
 
-  - [ ] 10.1 Implement performance optimizations for placement UI
+  - [x] 10.1 Implement performance optimizations for placement UI
 
     - Add efficient rendering for large piece inventories
     - Optimize drag and drop operations for smooth experience
@@ -166,7 +167,7 @@
     - Add loading states and progress indicators
     - _Requirements: 5.3, 5.6_
 
-  - [ ] 10.2 Add visual polish and user experience improvements
+  - [x] 10.2 Add visual polish and user experience improvements
     - Implement smooth animations for piece placement and removal
     - Add sound effects for placement actions and confirmations
     - Create tutorial or help system for first-time users
