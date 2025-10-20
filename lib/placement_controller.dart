@@ -151,10 +151,22 @@ class PlacementController extends ChangeNotifier {
     _saveCurrentState();
 
     // Verifica se deve iniciar countdown
+    debugPrint(
+      'PlacementController: Estado atualizado - Local: ${newState.localStatus}, Oponente: ${newState.opponentStatus}, GameStarting: $_isGameStarting',
+    );
+
     if (newState.localStatus == PlacementStatus.ready &&
         newState.opponentStatus == PlacementStatus.ready &&
         !_isGameStarting) {
+      debugPrint(
+        'PlacementController: Iniciando countdown - ambos jogadores prontos!',
+      );
       _startGameCountdown();
+    } else if (newState.localStatus == PlacementStatus.ready &&
+        newState.opponentStatus != PlacementStatus.ready) {
+      debugPrint(
+        'PlacementController: Jogador local pronto, aguardando oponente...',
+      );
     }
 
     notifyListeners();
@@ -263,6 +275,9 @@ class PlacementController extends ChangeNotifier {
 
       // Se oponente já está pronto, inicia countdown
       if (_currentState!.opponentStatus == PlacementStatus.ready) {
+        debugPrint(
+          'PlacementController: Oponente já estava pronto, iniciando countdown',
+        );
         _startGameCountdown();
       } else {
         // Atualiza para waiting se oponente não está pronto
@@ -278,6 +293,17 @@ class PlacementController extends ChangeNotifier {
           gamePhase: updatedState.gamePhase,
         );
         updateState(waitingState);
+
+        // TODO: Remover esta simulação quando integração real estiver funcionando
+        // Simula o oponente ficando pronto após 2 segundos para teste
+        debugPrint(
+          'PlacementController: Simulando oponente ficando pronto em 2 segundos...',
+        );
+        Timer(const Duration(seconds: 2), () {
+          if (_currentState?.localStatus == PlacementStatus.waiting) {
+            simulateOpponentReady();
+          }
+        });
       }
     } catch (e) {
       // Reverte status em caso de erro
@@ -319,8 +345,12 @@ class PlacementController extends ChangeNotifier {
 
   /// Inicia o countdown para início do jogo.
   void _startGameCountdown() {
-    if (_isGameStarting) return;
+    if (_isGameStarting) {
+      debugPrint('PlacementController: Countdown já está em andamento');
+      return;
+    }
 
+    debugPrint('PlacementController: Iniciando countdown de 3 segundos');
     _isGameStarting = true;
     _countdownSeconds = 3;
     notifyListeners();
@@ -328,10 +358,12 @@ class PlacementController extends ChangeNotifier {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _countdownSeconds--;
+      debugPrint('PlacementController: Countdown: $_countdownSeconds');
       notifyListeners();
 
       if (_countdownSeconds <= 0) {
         timer.cancel();
+        debugPrint('PlacementController: Countdown finalizado, iniciando jogo');
         _finishGameStart();
       }
     });
@@ -339,6 +371,7 @@ class PlacementController extends ChangeNotifier {
 
   /// Finaliza o countdown e inicia o jogo.
   void _finishGameStart() {
+    debugPrint('PlacementController: Finalizando countdown e iniciando jogo');
     _isGameStarting = false;
     _countdownTimer?.cancel();
 
@@ -356,6 +389,7 @@ class PlacementController extends ChangeNotifier {
         gamePhase: GamePhase.gameInProgress,
       );
 
+      debugPrint('PlacementController: Atualizando estado para gameInProgress');
       updateState(gameStartState);
 
       // Envia mensagem de início do jogo
@@ -909,6 +943,28 @@ class PlacementController extends ChangeNotifier {
   /// Atualiza a atividade de rede para evitar timeout durante interação do usuário.
   void updateNetworkActivity() {
     _lastNetworkActivity = DateTime.now();
+  }
+
+  /// Simula o oponente ficando pronto (para teste/desenvolvimento).
+  /// TODO: Remover quando integração real com servidor estiver funcionando.
+  void simulateOpponentReady() {
+    if (_currentState == null) return;
+
+    debugPrint('PlacementController: Simulando oponente ficando pronto...');
+
+    final updatedState = PlacementGameState(
+      gameId: _currentState!.gameId,
+      playerId: _currentState!.playerId,
+      availablePieces: _currentState!.availablePieces,
+      placedPieces: _currentState!.placedPieces,
+      playerArea: _currentState!.playerArea,
+      localStatus: _currentState!.localStatus,
+      opponentStatus: PlacementStatus.ready,
+      selectedPieceType: _currentState!.selectedPieceType,
+      gamePhase: _currentState!.gamePhase,
+    );
+
+    updateState(updatedState);
   }
 
   /// Força uma tentativa manual de reconexão.

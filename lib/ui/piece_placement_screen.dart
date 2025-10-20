@@ -118,6 +118,10 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
     final state = _controller.currentState;
     final error = _controller.lastError;
 
+    debugPrint(
+      'PiecePlacementScreen: Estado mudou - Fase: ${state?.gamePhase}, Local: ${state?.localStatus}, Oponente: ${state?.opponentStatus}',
+    );
+
     // Manipula erros se houver
     if (error != null && mounted) {
       PlacementErrorHandler.handlePlacementError(
@@ -131,6 +135,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
     // Verifica se o jogo deve iniciar
     if (state.gamePhase == GamePhase.gameInProgress) {
+      debugPrint(
+        'PiecePlacementScreen: Jogo deve iniciar! Chamando onGameStart callback',
+      );
       widget.onGameStart?.call();
     }
 
@@ -323,13 +330,8 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
       ),
       child: Row(
         children: [
-          // Botão de voltar
-          IconButton(
-            onPressed: _handleBackNavigation,
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            tooltip: 'Voltar',
-          ),
-          const SizedBox(width: 8),
+          // Espaço onde estava o botão voltar (removido para evitar saída acidental)
+          const SizedBox(width: 16),
 
           // Logo pequeno
           Image.asset(
@@ -514,9 +516,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
   /// Manipula a navegação de volta.
   void _handleBackNavigation() {
-    if (_showExitDialog) return;
-
-    _showExitConfirmationDialog();
+    // Durante o posicionamento, não permite voltar para evitar quebrar o fluxo do jogo
+    // O jogador deve completar o posicionamento ou aguardar timeout/desconexão
+    _showCannotExitDialog();
   }
 
   /// Posiciona uma peça em uma posição específica.
@@ -671,49 +673,40 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
     }
   }
 
-  /// Mostra o diálogo de confirmação de saída.
-  void _showExitConfirmationDialog() {
+  /// Mostra diálogo informando que não é possível sair durante o posicionamento.
+  void _showCannotExitDialog() {
+    if (_showExitDialog) return;
+
     setState(() {
       _showExitDialog = true;
     });
 
-    MilitaryThemeWidgets.showMilitaryDialog<bool>(
+    MilitaryThemeWidgets.showMilitaryDialog<void>(
       context: context,
-      barrierDismissible: false,
-      title: 'Sair do Posicionamento',
-      titleIcon: Icons.exit_to_app,
+      barrierDismissible: true,
+      title: 'Posicionamento em Andamento',
+      titleIcon: Icons.info_outline,
       content: const Text(
-        'Tem certeza que deseja sair? Seu progresso será perdido e você retornará à busca por oponente.',
+        'Você deve completar o posicionamento das peças para continuar. '
+        'Posicione todas as suas 40 peças e clique em "PRONTO" para iniciar a partida.',
         style: TextStyle(color: Colors.black87),
       ),
       actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.of(context).pop(false);
-            setState(() {
-              _showExitDialog = false;
-            });
-          },
-          child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
-        ),
         MilitaryThemeWidgets.militaryButton(
-          text: 'Sair',
+          text: 'Entendi',
           onPressed: () {
-            Navigator.of(context).pop(true);
+            Navigator.of(context).pop();
             setState(() {
               _showExitDialog = false;
             });
-            widget.onBack?.call();
           },
-          icon: Icons.exit_to_app,
+          icon: Icons.check,
         ),
       ],
-    ).then((confirmed) {
-      if (confirmed != true) {
-        setState(() {
-          _showExitDialog = false;
-        });
-      }
+    ).then((_) {
+      setState(() {
+        _showExitDialog = false;
+      });
     });
   }
 }
