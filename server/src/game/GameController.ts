@@ -7,7 +7,12 @@ import {
   Patentes,
   ResultadoMovimento,
   ResultadoCombate,
+  PlacementGameState,
+  PlacementStatus,
+  GamePhase,
+  INITIAL_PIECE_INVENTORY,
 } from "../types/game.types.js";
+import { PlacementManager } from "./PlacementManager.js";
 
 export class GameController {
   private static readonly lagos: Set<string> = new Set([
@@ -20,6 +25,12 @@ export class GameController {
     "5-6",
     "5-7",
   ]);
+
+  private placementManager: PlacementManager;
+
+  constructor() {
+    this.placementManager = new PlacementManager();
+  }
 
   public moverPeca(
     estadoAtual: EstadoJogo,
@@ -289,5 +300,183 @@ export class GameController {
     }
 
     return estado;
+  }
+
+  // ===== PLACEMENT PHASE METHODS =====
+
+  /**
+   * Validates piece placement area (must be within player's 4 rows)
+   */
+  public validatePlacementArea(
+    position: PosicaoTabuleiro,
+    playerTeam: Equipe
+  ): { valid: boolean; error?: string } {
+    const playerArea =
+      playerTeam === Equipe.Verde ? [0, 1, 2, 3] : [6, 7, 8, 9];
+
+    if (!playerArea.includes(position.linha)) {
+      return {
+        valid: false,
+        error: `Posição (${position.linha}, ${position.coluna}) fora da área do jogador ${playerTeam}`,
+      };
+    }
+
+    // Check board bounds
+    if (
+      position.linha < 0 ||
+      position.linha > 9 ||
+      position.coluna < 0 ||
+      position.coluna > 9
+    ) {
+      return { valid: false, error: "Posição fora dos limites do tabuleiro" };
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Validates piece count and composition for a player's army
+   */
+  public validatePieceComposition(pieces: PecaJogo[]): {
+    valid: boolean;
+    error?: string;
+  } {
+    if (pieces.length !== 40) {
+      return {
+        valid: false,
+        error: `Número incorreto de peças: ${pieces.length}/40`,
+      };
+    }
+
+    // Count pieces by type
+    const pieceComposition: { [patente: string]: number } = {};
+    pieces.forEach((piece) => {
+      pieceComposition[piece.patente] =
+        (pieceComposition[piece.patente] || 0) + 1;
+    });
+
+    // Validate against required composition
+    for (const [patente, requiredCount] of Object.entries(
+      INITIAL_PIECE_INVENTORY
+    )) {
+      const actualCount = pieceComposition[patente] || 0;
+      if (actualCount !== requiredCount) {
+        const patenteNome = Patentes[patente]?.nome || patente;
+        return {
+          valid: false,
+          error: `Composição incorreta: ${patenteNome} - esperado ${requiredCount}, atual ${actualCount}`,
+        };
+      }
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Validates complete placement for a player
+   */
+  public validateCompletePlacement(
+    pieces: PecaJogo[],
+    playerTeam: Equipe
+  ): { valid: boolean; error?: string } {
+    // Validate piece count and composition
+    const compositionValidation = this.validatePieceComposition(pieces);
+    if (!compositionValidation.valid) {
+      return compositionValidation;
+    }
+
+    // Validate all pieces are in correct area
+    const playerArea =
+      playerTeam === Equipe.Verde ? [0, 1, 2, 3] : [6, 7, 8, 9];
+    const invalidPieces = pieces.filter(
+      (piece) => !playerArea.includes(piece.posicao.linha)
+    );
+
+    if (invalidPieces.length > 0) {
+      return {
+        valid: false,
+        error: `${invalidPieces.length} peças estão fora da área do jogador`,
+      };
+    }
+
+    // Check for overlapping pieces
+    const positionSet = new Set<string>();
+    for (const piece of pieces) {
+      const posKey = `${piece.posicao.linha}-${piece.posicao.coluna}`;
+      if (positionSet.has(posKey)) {
+        return {
+          valid: false,
+          error: `Peças sobrepostas na posição (${piece.posicao.linha}, ${piece.posicao.coluna})`,
+        };
+      }
+      positionSet.add(posKey);
+    }
+
+    return { valid: true };
+  }
+
+  /**
+   * Checks if both players are ready to start the game
+   */
+  public areBothPlayersReady(
+    player1Status: PlacementStatus,
+    player2Status: PlacementStatus
+  ): boolean {
+    return (
+      player1Status === PlacementStatus.Ready &&
+      player2Status === PlacementStatus.Ready
+    );
+  }
+
+  /**
+   * Transitions from placement phase to game start
+   */
+  public transitionToGameStart(
+    gameId: string,
+    player1Pieces: PecaJogo[],
+    player2Pieces: PecaJogo[],
+    jogadores: Omit<Jogador, "ws">[]
+  ): { success: boolean; estadoJogo?: EstadoJogo; error?: string } {
+    // Validate both players' placements
+    const player1Team = jogadores[0].equipe;
+    const player2Team = jogadores[1].equipe;
+
+    const player1Validation = this.validateCompletePlacement(
+      player1Pieces,
+      player1Team
+    );
+    if (!player1Validation.valid) {
+      return { success: false, error: `Jogador 1: ${player1Validation.error}` };
+    }
+
+    const player2Validation = this.validateCompletePlacement(
+      player2Pieces,
+      player2Team
+    );
+    if (!player2Validation.valid) {
+      return { success: false, error: `Jogador 2: ${player2Validation.error}` };
+    }
+
+    // Combine all pieces
+    const allPieces = [...player1Pieces, ...player2Pieces];
+
+    // Create initial game state
+    const estadoJogo: EstadoJogo = {
+      idPartida: gameId,
+      jogadores: jogadores,
+      pecas: allPieces,
+      idJogadorDaVez: jogadores[0].id, // First player starts
+      jogoTerminou: false,
+      idVencedor: null,
+    };
+
+    return { success: true, estadoJogo };
+  }
+
+  /**
+   * Gets the placement manager instance
+   */
+  public getPlacementManager(): PlacementManager {
+    return this.placementManager;
   }
 }

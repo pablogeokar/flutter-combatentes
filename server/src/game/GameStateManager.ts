@@ -25,6 +25,24 @@ export class GameStateManager {
     };
   }
 
+  /**
+   * Creates an empty game state for placement phase
+   */
+  public static createEmptyGameState(
+    gameId: string,
+    p1: Omit<Jogador, "ws">,
+    p2: Omit<Jogador, "ws">
+  ): EstadoJogo {
+    return {
+      idPartida: gameId,
+      jogadores: [p1, p2],
+      pecas: [], // Empty - pieces will be added during placement
+      idJogadorDaVez: p1.id,
+      jogoTerminou: false,
+      idVencedor: null,
+    };
+  }
+
   private static createInitialPieces(): PecaJogo[] {
     const pecas: PecaJogo[] = [];
     const contagemPecas: { [key: string]: number } = {

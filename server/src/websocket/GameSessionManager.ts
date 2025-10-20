@@ -44,10 +44,12 @@ export class GameSessionManager {
 
     this.pendingClient = null;
 
-    console.log(`Partida iniciada entre ${player1.nome} e ${player2.nome}`);
+    console.log(`Pareamento realizado entre ${player1.nome} e ${player2.nome}`);
 
     const gameId = uuidv4();
-    const estadoInicial = GameStateManager.createInitialGameState(
+
+    // Create empty initial game state (pieces will be added after placement)
+    const estadoInicial = GameStateManager.createEmptyGameState(
       gameId,
       { id: player1.id, nome: player1.nome, equipe: player1.equipe },
       { id: player2.id, nome: player2.nome, equipe: player2.equipe }
@@ -60,7 +62,11 @@ export class GameSessionManager {
     };
 
     this.activeGames.set(gameId, session);
-    this.broadcastGameState(session);
+
+    // Initialize placement phase instead of starting game immediately
+    this.messageHandler.initializePlacementPhase(session);
+
+    console.log(`🎯 Fase de posicionamento iniciada para sessão ${gameId}`);
   }
 
   private setupWebSocketHandlers(ws: WebSocket, clientId: string): void {

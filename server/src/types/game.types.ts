@@ -70,3 +70,64 @@ export interface ResultadoCombate {
   vencedor: PecaJogo | null;
   perdedor: PecaJogo | null;
 }
+
+export enum GamePhase {
+  WaitingForOpponent = "waitingForOpponent",
+  PiecePlacement = "piecePlacement",
+  WaitingForOpponentReady = "waitingForOpponentReady",
+  GameStarting = "gameStarting",
+  GameInProgress = "gameInProgress",
+  GameFinished = "gameFinished",
+}
+
+export enum PlacementStatus {
+  Placing = "placing",
+  Ready = "ready",
+  Waiting = "waiting",
+}
+
+export interface PlacementGameState {
+  gameId: string;
+  playerId: string;
+  availablePieces: { [patente: string]: number };
+  placedPieces: PecaJogo[];
+  playerArea: number[];
+  localStatus: PlacementStatus;
+  opponentStatus: PlacementStatus;
+  selectedPieceType?: string | null;
+  gamePhase: GamePhase;
+}
+
+export interface PlacementMessageData {
+  pieceId?: string;
+  patente?: string;
+  position?: PosicaoTabuleiro;
+  status?: PlacementStatus;
+  allPieces?: PecaJogo[];
+}
+
+export interface PlacementMessage {
+  type:
+    | "PLACEMENT_UPDATE"
+    | "PLACEMENT_READY"
+    | "PLACEMENT_STATUS"
+    | "GAME_START";
+  gameId: string;
+  playerId: string;
+  data?: PlacementMessageData;
+}
+
+export const INITIAL_PIECE_INVENTORY: { [patente: string]: number } = {
+  marechal: 1,
+  general: 1,
+  coronel: 2,
+  major: 3,
+  capitao: 4,
+  tenente: 4,
+  sargento: 4,
+  cabo: 5,
+  soldado: 8,
+  agenteSecreto: 1,
+  prisioneiro: 1,
+  minaTerrestre: 6,
+};

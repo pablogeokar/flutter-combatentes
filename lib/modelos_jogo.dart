@@ -12,6 +12,41 @@ enum Equipe {
   preta,
 }
 
+/// Um enum para representar as diferentes fases do jogo.
+@JsonEnum()
+enum GamePhase {
+  /// Aguardando pareamento com oponente.
+  waitingForOpponent,
+
+  /// Fase de posicionamento manual de peças.
+  piecePlacement,
+
+  /// Aguardando oponente confirmar posicionamento.
+  waitingForOpponentReady,
+
+  /// Iniciando a partida (countdown).
+  gameStarting,
+
+  /// Jogo em andamento.
+  gameInProgress,
+
+  /// Jogo terminado.
+  gameFinished,
+}
+
+/// Um enum para representar o status do posicionamento de peças.
+@JsonEnum()
+enum PlacementStatus {
+  /// Jogador está posicionando peças.
+  placing,
+
+  /// Jogador confirmou posicionamento e está pronto.
+  ready,
+
+  /// Jogador está aguardando o oponente.
+  waiting,
+}
+
 /// Um enum para representar todas as patentes possíveis das peças.
 @JsonEnum()
 enum Patente {
@@ -167,4 +202,202 @@ class EstadoJogo {
   factory EstadoJogo.fromJson(Map<String, dynamic> json) =>
       _$EstadoJogoFromJson(json);
   Map<String, dynamic> toJson() => _$EstadoJogoToJson(this);
+}
+
+/// Representa o estado do jogo durante a fase de posicionamento de peças.
+@JsonSerializable(explicitToJson: true)
+class PlacementGameState {
+  /// ID único para a partida.
+  final String gameId;
+
+  /// ID do jogador local.
+  final String playerId;
+
+  /// Inventário de peças disponíveis para posicionamento (patente -> quantidade).
+  final Map<String, int> availablePieces;
+
+  /// Lista de peças já posicionadas no tabuleiro.
+  final List<PecaJogo> placedPieces;
+
+  /// Linhas válidas para posicionamento do jogador (ex: [0,1,2,3] ou [6,7,8,9]).
+  final List<int> playerArea;
+
+  /// Status do posicionamento do jogador local.
+  final PlacementStatus localStatus;
+
+  /// Status do posicionamento do oponente.
+  final PlacementStatus opponentStatus;
+
+  /// Tipo de peça atualmente selecionado para posicionamento.
+  final Patente? selectedPieceType;
+
+  /// Fase atual do jogo.
+  final GamePhase gamePhase;
+
+  const PlacementGameState({
+    required this.gameId,
+    required this.playerId,
+    required this.availablePieces,
+    required this.placedPieces,
+    required this.playerArea,
+    required this.localStatus,
+    required this.opponentStatus,
+    this.selectedPieceType,
+    required this.gamePhase,
+  });
+
+  factory PlacementGameState.fromJson(Map<String, dynamic> json) =>
+      _$PlacementGameStateFromJson(json);
+  Map<String, dynamic> toJson() => _$PlacementGameStateToJson(this);
+
+  /// Cria o inventário inicial de peças para um jogador (40 peças total).
+  static Map<String, int> createInitialInventory() {
+    return {
+      'marechal': 1,
+      'general': 1,
+      'coronel': 2,
+      'major': 3,
+      'capitao': 4,
+      'tenente': 4,
+      'sargento': 4,
+      'cabo': 5,
+      'soldado': 8,
+      'agenteSecreto': 1,
+      'prisioneiro': 1,
+      'minaTerrestre': 6,
+    };
+  }
+
+  /// Retorna o número total de peças restantes no inventário.
+  int get totalPiecesRemaining {
+    return availablePieces.values.fold(0, (sum, count) => sum + count);
+  }
+
+  /// Verifica se todas as peças foram posicionadas.
+  bool get allPiecesPlaced {
+    return totalPiecesRemaining == 0;
+  }
+
+  /// Verifica se o jogador pode confirmar o posicionamento.
+  bool get canConfirm {
+    return allPiecesPlaced && localStatus == PlacementStatus.placing;
+  }
+}
+
+/// Representa uma mensagem WebSocket para comunicação durante o posicionamento.
+@JsonSerializable(explicitToJson: true)
+class PlacementMessage {
+  /// Tipo da mensagem.
+  final String type;
+
+  /// ID da partida.
+  final String gameId;
+
+  /// ID do jogador que enviou a mensagem.
+  final String playerId;
+
+  /// Dados específicos da mensagem.
+  final PlacementMessageData? data;
+
+  const PlacementMessage({
+    required this.type,
+    required this.gameId,
+    required this.playerId,
+    this.data,
+  });
+
+  factory PlacementMessage.fromJson(Map<String, dynamic> json) =>
+      _$PlacementMessageFromJson(json);
+  Map<String, dynamic> toJson() => _$PlacementMessageToJson(this);
+
+  /// Cria uma mensagem de atualização de posicionamento.
+  factory PlacementMessage.placementUpdate({
+    required String gameId,
+    required String playerId,
+    required String pieceId,
+    required Patente patente,
+    required PosicaoTabuleiro position,
+  }) {
+    return PlacementMessage(
+      type: 'PLACEMENT_UPDATE',
+      gameId: gameId,
+      playerId: playerId,
+      data: PlacementMessageData(
+        pieceId: pieceId,
+        patente: patente,
+        position: position,
+      ),
+    );
+  }
+
+  /// Cria uma mensagem de confirmação de posicionamento.
+  factory PlacementMessage.placementReady({
+    required String gameId,
+    required String playerId,
+    required List<PecaJogo> allPieces,
+  }) {
+    return PlacementMessage(
+      type: 'PLACEMENT_READY',
+      gameId: gameId,
+      playerId: playerId,
+      data: PlacementMessageData(allPieces: allPieces),
+    );
+  }
+
+  /// Cria uma mensagem de status do posicionamento.
+  factory PlacementMessage.placementStatus({
+    required String gameId,
+    required String playerId,
+    required PlacementStatus status,
+  }) {
+    return PlacementMessage(
+      type: 'PLACEMENT_STATUS',
+      gameId: gameId,
+      playerId: playerId,
+      data: PlacementMessageData(status: status),
+    );
+  }
+
+  /// Cria uma mensagem de início do jogo.
+  factory PlacementMessage.gameStart({
+    required String gameId,
+    required String playerId,
+  }) {
+    return PlacementMessage(
+      type: 'GAME_START',
+      gameId: gameId,
+      playerId: playerId,
+    );
+  }
+}
+
+/// Dados específicos de uma mensagem de posicionamento.
+@JsonSerializable(explicitToJson: true)
+class PlacementMessageData {
+  /// ID da peça (para atualizações de posição).
+  final String? pieceId;
+
+  /// Patente da peça (para atualizações de posição).
+  final Patente? patente;
+
+  /// Nova posição da peça.
+  final PosicaoTabuleiro? position;
+
+  /// Status do posicionamento.
+  final PlacementStatus? status;
+
+  /// Lista completa de peças (para confirmação).
+  final List<PecaJogo>? allPieces;
+
+  const PlacementMessageData({
+    this.pieceId,
+    this.patente,
+    this.position,
+    this.status,
+    this.allPieces,
+  });
+
+  factory PlacementMessageData.fromJson(Map<String, dynamic> json) =>
+      _$PlacementMessageDataFromJson(json);
+  Map<String, dynamic> toJson() => _$PlacementMessageDataToJson(this);
 }
