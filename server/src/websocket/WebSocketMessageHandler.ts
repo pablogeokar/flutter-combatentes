@@ -6,6 +6,11 @@ import {
   PlacementStatus,
   GamePhase,
 } from "../types/game.types.js";
+import {
+  PlacementErrorDetails,
+  ValidationContext,
+  PlacementErrorType,
+} from "../types/placement-errors.types.js";
 import { GameController } from "../game/GameController.js";
 
 export class WebSocketMessageHandler {
@@ -178,11 +183,41 @@ export class WebSocketMessageHandler {
     clientId: string,
     ws: WebSocket
   ): void {
+    const context: ValidationContext = {
+      gameId: message.gameId,
+      playerId: clientId,
+      operationType: "PLACEMENT_UPDATE",
+      timestamp: Date.now(),
+      requestId: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    };
+
     try {
       const { gameId, data } = message;
 
-      if (!data || !data.patente || !data.position) {
-        this.sendPlacementError(ws, "Dados de posicionamento inválidos");
+      // Validate basic message structure
+      if (!data || !data.position) {
+        this.sendPlacementErrorDetails(ws, {
+          type: PlacementErrorType.INVALID_POSITION,
+          message: "Invalid placement data structure",
+          userMessage: "Dados de posicionamento inválidos",
+          code: "P4001",
+          context: { gameId, playerId: clientId },
+          timestamp: new Date().toISOString(),
+          requestId: context.requestId,
+        });
+        return;
+      }
+
+      // Validate game state and authorization
+      const placementManager = this.gameController.getPlacementManager();
+      const authResult = placementManager.validateGameStateAndAuth(
+        gameId,
+        clientId,
+        context
+      );
+
+      if (!authResult.success) {
+        this.sendPlacementErrorDetails(ws, authResult.error!);
         return;
       }
 
@@ -198,68 +233,107 @@ export class WebSocketMessageHandler {
         // Create initial placement state
         const session = this.findGameByPlayerId(clientId);
         if (!session) {
-          this.sendPlacementError(ws, "Sessão de jogo não encontrada");
+          this.sendPlacementErrorDetails(ws, {
+            type: PlacementErrorType.GAME_NOT_FOUND,
+            message: `Game session not found for player ${clientId}`,
+            userMessage: "Sessão de jogo não encontrada",
+            code: "P4103",
+            context: { gameId, playerId: clientId },
+            timestamp: new Date().toISOString(),
+            requestId: context.requestId,
+          });
           return;
         }
 
         const player = session.jogadores.find((j) => j.id === clientId);
         if (!player) {
-          this.sendPlacementError(ws, "Jogador não encontrado na sessão");
+          this.sendPlacementErrorDetails(ws, {
+            type: PlacementErrorType.PLAYER_NOT_FOUND,
+            message: `Player not found in game session`,
+            userMessage: "Jogador não encontrado na sessão",
+            code: "P4102",
+            context: { gameId, playerId: clientId },
+            timestamp: new Date().toISOString(),
+            requestId: context.requestId,
+          });
           return;
         }
 
-        playerState = this.gameController
-          .getPlacementManager()
-          .createInitialPlacementState(gameId, clientId, player.equipe);
+        playerState = placementManager.createInitialPlacementState(
+          gameId,
+          clientId,
+          player.equipe
+        );
         gameStates.set(clientId, playerState);
       }
 
-      // Handle the placement update
-      const placementManager = this.gameController.getPlacementManager();
-
+      // Handle the placement update with comprehensive validation
       if (data.pieceId) {
         // Moving existing piece
         const result = placementManager.movePiece(
           playerState,
           data.pieceId,
-          data.position
+          data.position,
+          context
         );
-        if (result.success && result.newState) {
-          gameStates.set(clientId, result.newState);
-          this.sendPlacementStatus(ws, result.newState);
+
+        if (result.success && result.data) {
+          gameStates.set(clientId, result.data);
+          this.sendPlacementStatus(ws, result.data);
           this.broadcastOpponentStatus(
             gameId,
             clientId,
-            result.newState.localStatus
+            result.data.localStatus
           );
         } else {
-          this.sendPlacementError(ws, result.error || "Erro ao mover peça");
+          this.sendPlacementErrorDetails(ws, result.error!);
         }
-      } else {
+      } else if (data.patente) {
         // Placing new piece
         const result = placementManager.placePiece(
           playerState,
           data.patente,
-          data.position
+          data.position,
+          context
         );
-        if (result.success && result.newState) {
-          gameStates.set(clientId, result.newState);
-          this.sendPlacementStatus(ws, result.newState);
+
+        if (result.success && result.data) {
+          gameStates.set(clientId, result.data);
+          this.sendPlacementStatus(ws, result.data);
           this.broadcastOpponentStatus(
             gameId,
             clientId,
-            result.newState.localStatus
+            result.data.localStatus
           );
         } else {
-          this.sendPlacementError(
-            ws,
-            result.error || "Erro ao posicionar peça"
-          );
+          this.sendPlacementErrorDetails(ws, result.error!);
         }
+      } else {
+        this.sendPlacementErrorDetails(ws, {
+          type: PlacementErrorType.PIECE_NOT_AVAILABLE,
+          message: "Missing piece type or piece ID",
+          userMessage: "Tipo de peça ou ID da peça não especificado",
+          code: "P4002",
+          context: { gameId, playerId: clientId, data },
+          timestamp: new Date().toISOString(),
+          requestId: context.requestId,
+        });
       }
     } catch (error) {
       console.error("Erro ao processar atualização de posicionamento:", error);
-      this.sendPlacementError(ws, "Erro interno do servidor");
+      this.sendPlacementErrorDetails(ws, {
+        type: PlacementErrorType.INTERNAL_SERVER_ERROR,
+        message: `Internal server error: ${error}`,
+        userMessage: "Erro interno do servidor",
+        code: "P5001",
+        context: {
+          gameId: message.gameId,
+          playerId: clientId,
+          originalError: String(error),
+        },
+        timestamp: new Date().toISOString(),
+        requestId: context.requestId,
+      });
     }
   }
 
@@ -271,36 +345,69 @@ export class WebSocketMessageHandler {
     clientId: string,
     ws: WebSocket
   ): void {
+    const context: ValidationContext = {
+      gameId: message.gameId,
+      playerId: clientId,
+      operationType: "PLACEMENT_CONFIRMATION",
+      timestamp: Date.now(),
+      requestId: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    };
+
     try {
       const { gameId } = message;
 
+      // Validate game state and authorization
+      const placementManager = this.gameController.getPlacementManager();
+      const authResult = placementManager.validateGameStateAndAuth(
+        gameId,
+        clientId,
+        context
+      );
+
+      if (!authResult.success) {
+        this.sendPlacementErrorDetails(ws, authResult.error!);
+        return;
+      }
+
       const gameStates = this.placementStates.get(gameId);
       if (!gameStates) {
-        this.sendPlacementError(ws, "Estado de posicionamento não encontrado");
+        this.sendPlacementErrorDetails(ws, {
+          type: PlacementErrorType.INVALID_GAME_STATE,
+          message: "Placement state not found for game",
+          userMessage: "Estado de posicionamento não encontrado",
+          code: "P4101",
+          context: { gameId, playerId: clientId },
+          timestamp: new Date().toISOString(),
+          requestId: context.requestId,
+        });
         return;
       }
 
       const playerState = gameStates.get(clientId);
       if (!playerState) {
-        this.sendPlacementError(ws, "Estado do jogador não encontrado");
+        this.sendPlacementErrorDetails(ws, {
+          type: PlacementErrorType.PLAYER_NOT_FOUND,
+          message: "Player state not found",
+          userMessage: "Estado do jogador não encontrado",
+          code: "P4102",
+          context: { gameId, playerId: clientId },
+          timestamp: new Date().toISOString(),
+          requestId: context.requestId,
+        });
         return;
       }
 
-      // Confirm placement
-      const placementManager = this.gameController.getPlacementManager();
-      const result = placementManager.confirmPlacement(playerState);
+      // Confirm placement with comprehensive validation
+      const result = placementManager.confirmPlacement(playerState, context);
 
-      if (!result.success || !result.newState) {
-        this.sendPlacementError(
-          ws,
-          result.error || "Não é possível confirmar posicionamento"
-        );
+      if (!result.success || !result.data) {
+        this.sendPlacementErrorDetails(ws, result.error!);
         return;
       }
 
       // Update player state
-      gameStates.set(clientId, result.newState);
-      this.sendPlacementStatus(ws, result.newState);
+      gameStates.set(clientId, result.data);
+      this.sendPlacementStatus(ws, result.data);
       this.broadcastOpponentStatus(gameId, clientId, PlacementStatus.Ready);
 
       // Check if both players are ready
@@ -318,7 +425,19 @@ export class WebSocketMessageHandler {
       }
     } catch (error) {
       console.error("Erro ao processar confirmação de posicionamento:", error);
-      this.sendPlacementError(ws, "Erro interno do servidor");
+      this.sendPlacementErrorDetails(ws, {
+        type: PlacementErrorType.INTERNAL_SERVER_ERROR,
+        message: `Internal server error during placement confirmation: ${error}`,
+        userMessage: "Erro interno do servidor",
+        code: "P5001",
+        context: {
+          gameId: message.gameId,
+          playerId: clientId,
+          originalError: String(error),
+        },
+        timestamp: new Date().toISOString(),
+        requestId: context.requestId,
+      });
     }
   }
 
@@ -448,7 +567,7 @@ export class WebSocketMessageHandler {
   }
 
   /**
-   * Sends placement error to player
+   * Sends placement error to player (legacy method)
    */
   private sendPlacementError(ws: WebSocket, error: string): void {
     if (ws.readyState === WebSocket.OPEN) {
@@ -456,6 +575,32 @@ export class WebSocketMessageHandler {
         JSON.stringify({
           type: "PLACEMENT_ERROR",
           data: { error },
+        })
+      );
+    }
+  }
+
+  /**
+   * Sends detailed placement error to player
+   */
+  private sendPlacementErrorDetails(
+    ws: WebSocket,
+    error: PlacementErrorDetails
+  ): void {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(
+        JSON.stringify({
+          type: "PLACEMENT_ERROR_DETAILS",
+          error: {
+            type: error.type,
+            message: error.userMessage, // Send user-friendly message
+            code: error.code,
+            context: {
+              gameId: error.context?.gameId,
+              timestamp: error.timestamp,
+              requestId: error.requestId,
+            },
+          },
         })
       );
     }
@@ -479,5 +624,42 @@ export class WebSocketMessageHandler {
 
     this.placementStates.set(session.id, gameStates);
     console.log(`🎯 Fase de posicionamento iniciada para sessão ${session.id}`);
+  }
+
+  /**
+   * Gets error statistics for monitoring and debugging
+   */
+  public getErrorStatistics() {
+    const placementManager = this.gameController.getPlacementManager();
+    return {
+      recentLogs: placementManager.getRecentLogs(100),
+      rateLimitStats: placementManager.getRateLimitStats(),
+      activePlacementGames: this.placementStates.size,
+      totalActiveGames: this.activeGames.size,
+    };
+  }
+
+  /**
+   * Clears error logs and rate limits (for admin/testing purposes)
+   */
+  public clearErrorData(): void {
+    const placementManager = this.gameController.getPlacementManager();
+    placementManager.clearLogs();
+    placementManager.clearRateLimits();
+    console.log("Error data cleared");
+  }
+
+  /**
+   * Gets placement state for debugging
+   */
+  public getPlacementState(gameId: string, playerId?: string) {
+    const gameStates = this.placementStates.get(gameId);
+    if (!gameStates) return null;
+
+    if (playerId) {
+      return gameStates.get(playerId) || null;
+    }
+
+    return Object.fromEntries(gameStates.entries());
   }
 }

@@ -7,9 +7,19 @@ import {
   INITIAL_PIECE_INVENTORY,
   Patentes,
 } from "../types/game.types.js";
+import {
+  PlacementOperationResult,
+  ValidationContext,
+} from "../types/placement-errors.types.js";
+import { PlacementErrorHandler } from "./PlacementErrorHandler.js";
 import { v4 as uuidv4 } from "uuid";
 
 export class PlacementManager {
+  private errorHandler: PlacementErrorHandler;
+
+  constructor() {
+    this.errorHandler = new PlacementErrorHandler();
+  }
   /**
    * Creates initial placement state for a player
    */
@@ -40,43 +50,28 @@ export class PlacementManager {
   public validatePiecePlacement(
     placementState: PlacementGameState,
     patente: string,
-    position: PosicaoTabuleiro
-  ): { valid: boolean; error?: string } {
-    // Check if piece type is available in inventory
-    if (
-      !placementState.availablePieces[patente] ||
-      placementState.availablePieces[patente] <= 0
-    ) {
-      return { valid: false, error: "Peça não disponível no inventário" };
-    }
+    position: PosicaoTabuleiro,
+    context?: ValidationContext
+  ): PlacementOperationResult<void> {
+    const validationContext: ValidationContext = context || {
+      gameId: placementState.gameId,
+      playerId: placementState.playerId,
+      operationType: "PIECE_PLACEMENT_VALIDATION",
+      timestamp: Date.now(),
+    };
 
-    // Check if position is within player's area
-    if (!placementState.playerArea.includes(position.linha)) {
-      return { valid: false, error: "Posição fora da área do jogador" };
-    }
-
-    // Check if position is within board bounds
-    if (
-      position.linha < 0 ||
-      position.linha > 9 ||
-      position.coluna < 0 ||
-      position.coluna > 9
-    ) {
-      return { valid: false, error: "Posição fora dos limites do tabuleiro" };
-    }
-
-    // Check if position is already occupied
-    const existingPiece = placementState.placedPieces.find(
-      (piece) =>
-        piece.posicao.linha === position.linha &&
-        piece.posicao.coluna === position.coluna
+    const result = this.errorHandler.validatePiecePlacement(
+      placementState,
+      patente,
+      position,
+      validationContext
     );
 
-    if (existingPiece) {
-      return { valid: false, error: "Posição já ocupada" };
+    if (result.isValid) {
+      return { success: true };
+    } else {
+      return { success: false, error: result.error };
     }
-
-    return { valid: true };
   }
 
   /**
@@ -85,42 +80,64 @@ export class PlacementManager {
   public placePiece(
     placementState: PlacementGameState,
     patente: string,
-    position: PosicaoTabuleiro
-  ): { success: boolean; newState?: PlacementGameState; error?: string } {
+    position: PosicaoTabuleiro,
+    context?: ValidationContext
+  ): PlacementOperationResult<PlacementGameState> {
+    const validationContext: ValidationContext = context || {
+      gameId: placementState.gameId,
+      playerId: placementState.playerId,
+      operationType: "PIECE_PLACEMENT",
+      timestamp: Date.now(),
+    };
+
+    // Validate the placement
     const validation = this.validatePiecePlacement(
       placementState,
       patente,
-      position
+      position,
+      validationContext
     );
 
-    if (!validation.valid) {
+    if (!validation.success) {
       return { success: false, error: validation.error };
     }
 
-    // Create new piece
-    const newPiece: PecaJogo = {
-      id: uuidv4(),
-      patente,
-      equipe: placementState.playerId.includes("verde")
-        ? Equipe.Verde
-        : Equipe.Preta, // Simple team detection
-      posicao: position,
-      foiRevelada: false,
-    };
+    try {
+      // Create new piece
+      const newPiece: PecaJogo = {
+        id: uuidv4(),
+        patente,
+        equipe: placementState.playerId.includes("verde")
+          ? Equipe.Verde
+          : Equipe.Preta, // Simple team detection
+        posicao: position,
+        foiRevelada: false,
+      };
 
-    // Update inventory and placed pieces
-    const newAvailablePieces = { ...placementState.availablePieces };
-    newAvailablePieces[patente]--;
+      // Update inventory and placed pieces
+      const newAvailablePieces = { ...placementState.availablePieces };
+      newAvailablePieces[patente]--;
 
-    const newPlacedPieces = [...placementState.placedPieces, newPiece];
+      const newPlacedPieces = [...placementState.placedPieces, newPiece];
 
-    const newState: PlacementGameState = {
-      ...placementState,
-      availablePieces: newAvailablePieces,
-      placedPieces: newPlacedPieces,
-    };
+      const newState: PlacementGameState = {
+        ...placementState,
+        availablePieces: newAvailablePieces,
+        placedPieces: newPlacedPieces,
+      };
 
-    return { success: true, newState };
+      return { success: true, data: newState };
+    } catch (error) {
+      const errorDetails = this.errorHandler.createError(
+        "INTERNAL_SERVER_ERROR" as any,
+        `Failed to place piece: ${error}`,
+        "Erro interno ao posicionar peça",
+        validationContext,
+        { patente, position, originalError: String(error) }
+      );
+
+      return { success: false, error: errorDetails };
+    }
   }
 
   /**
@@ -129,61 +146,74 @@ export class PlacementManager {
   public movePiece(
     placementState: PlacementGameState,
     pieceId: string,
-    newPosition: PosicaoTabuleiro
-  ): { success: boolean; newState?: PlacementGameState; error?: string } {
-    // Find the piece to move
-    const pieceIndex = placementState.placedPieces.findIndex(
-      (p) => p.id === pieceId
-    );
-    if (pieceIndex === -1) {
-      return { success: false, error: "Peça não encontrada" };
-    }
-
-    const piece = placementState.placedPieces[pieceIndex];
-
-    // Check if new position is within player's area
-    if (!placementState.playerArea.includes(newPosition.linha)) {
-      return { success: false, error: "Posição fora da área do jogador" };
-    }
-
-    // Check if position is within board bounds
-    if (
-      newPosition.linha < 0 ||
-      newPosition.linha > 9 ||
-      newPosition.coluna < 0 ||
-      newPosition.coluna > 9
-    ) {
-      return { success: false, error: "Posição fora dos limites do tabuleiro" };
-    }
-
-    let newPlacedPieces = [...placementState.placedPieces];
-
-    // Check if there's a piece at the new position
-    const existingPieceIndex = newPlacedPieces.findIndex(
-      (p) =>
-        p.posicao.linha === newPosition.linha &&
-        p.posicao.coluna === newPosition.coluna
-    );
-
-    if (existingPieceIndex !== -1) {
-      // Swap positions
-      const existingPiece = newPlacedPieces[existingPieceIndex];
-      newPlacedPieces[existingPieceIndex] = {
-        ...existingPiece,
-        posicao: piece.posicao,
-      };
-      newPlacedPieces[pieceIndex] = { ...piece, posicao: newPosition };
-    } else {
-      // Simple move
-      newPlacedPieces[pieceIndex] = { ...piece, posicao: newPosition };
-    }
-
-    const newState: PlacementGameState = {
-      ...placementState,
-      placedPieces: newPlacedPieces,
+    newPosition: PosicaoTabuleiro,
+    context?: ValidationContext
+  ): PlacementOperationResult<PlacementGameState> {
+    const validationContext: ValidationContext = context || {
+      gameId: placementState.gameId,
+      playerId: placementState.playerId,
+      operationType: "PIECE_MOVEMENT",
+      timestamp: Date.now(),
     };
 
-    return { success: true, newState };
+    // Validate the movement
+    const validation = this.errorHandler.validatePieceMovement(
+      placementState,
+      pieceId,
+      newPosition,
+      validationContext
+    );
+
+    if (!validation.isValid) {
+      return { success: false, error: validation.error };
+    }
+
+    try {
+      // Find the piece to move
+      const pieceIndex = placementState.placedPieces.findIndex(
+        (p) => p.id === pieceId
+      );
+      const piece = placementState.placedPieces[pieceIndex];
+
+      let newPlacedPieces = [...placementState.placedPieces];
+
+      // Check if there's a piece at the new position
+      const existingPieceIndex = newPlacedPieces.findIndex(
+        (p) =>
+          p.posicao.linha === newPosition.linha &&
+          p.posicao.coluna === newPosition.coluna
+      );
+
+      if (existingPieceIndex !== -1) {
+        // Swap positions
+        const existingPiece = newPlacedPieces[existingPieceIndex];
+        newPlacedPieces[existingPieceIndex] = {
+          ...existingPiece,
+          posicao: piece.posicao,
+        };
+        newPlacedPieces[pieceIndex] = { ...piece, posicao: newPosition };
+      } else {
+        // Simple move
+        newPlacedPieces[pieceIndex] = { ...piece, posicao: newPosition };
+      }
+
+      const newState: PlacementGameState = {
+        ...placementState,
+        placedPieces: newPlacedPieces,
+      };
+
+      return { success: true, data: newState };
+    } catch (error) {
+      const errorDetails = this.errorHandler.createError(
+        "INTERNAL_SERVER_ERROR" as any,
+        `Failed to move piece: ${error}`,
+        "Erro interno ao mover peça",
+        validationContext,
+        { pieceId, newPosition, originalError: String(error) }
+      );
+
+      return { success: false, error: errorDetails };
+    }
   }
 
   /**
@@ -191,119 +221,133 @@ export class PlacementManager {
    */
   public removePiece(
     placementState: PlacementGameState,
-    pieceId: string
-  ): { success: boolean; newState?: PlacementGameState; error?: string } {
-    const pieceIndex = placementState.placedPieces.findIndex(
-      (p) => p.id === pieceId
-    );
-    if (pieceIndex === -1) {
-      return { success: false, error: "Peça não encontrada" };
-    }
-
-    const piece = placementState.placedPieces[pieceIndex];
-
-    // Remove piece from board
-    const newPlacedPieces = placementState.placedPieces.filter(
-      (p) => p.id !== pieceId
-    );
-
-    // Return piece to inventory
-    const newAvailablePieces = { ...placementState.availablePieces };
-    newAvailablePieces[piece.patente]++;
-
-    const newState: PlacementGameState = {
-      ...placementState,
-      availablePieces: newAvailablePieces,
-      placedPieces: newPlacedPieces,
+    pieceId: string,
+    context?: ValidationContext
+  ): PlacementOperationResult<PlacementGameState> {
+    const validationContext: ValidationContext = context || {
+      gameId: placementState.gameId,
+      playerId: placementState.playerId,
+      operationType: "PIECE_REMOVAL",
+      timestamp: Date.now(),
     };
 
-    return { success: true, newState };
+    try {
+      const pieceIndex = placementState.placedPieces.findIndex(
+        (p) => p.id === pieceId
+      );
+
+      if (pieceIndex === -1) {
+        const errorDetails = this.errorHandler.createError(
+          "INVALID_GAME_STATE" as any,
+          `Piece not found: ${pieceId}`,
+          "Peça não encontrada",
+          validationContext,
+          {
+            pieceId,
+            availablePieces: placementState.placedPieces.map((p) => p.id),
+          }
+        );
+        return { success: false, error: errorDetails };
+      }
+
+      const piece = placementState.placedPieces[pieceIndex];
+
+      // Remove piece from board
+      const newPlacedPieces = placementState.placedPieces.filter(
+        (p) => p.id !== pieceId
+      );
+
+      // Return piece to inventory
+      const newAvailablePieces = { ...placementState.availablePieces };
+      newAvailablePieces[piece.patente]++;
+
+      const newState: PlacementGameState = {
+        ...placementState,
+        availablePieces: newAvailablePieces,
+        placedPieces: newPlacedPieces,
+      };
+
+      return { success: true, data: newState };
+    } catch (error) {
+      const errorDetails = this.errorHandler.createError(
+        "INTERNAL_SERVER_ERROR" as any,
+        `Failed to remove piece: ${error}`,
+        "Erro interno ao remover peça",
+        validationContext,
+        { pieceId, originalError: String(error) }
+      );
+
+      return { success: false, error: errorDetails };
+    }
   }
 
   /**
    * Validates if all pieces are placed correctly for confirmation
    */
-  public validatePlacementCompletion(placementState: PlacementGameState): {
-    valid: boolean;
-    error?: string;
-  } {
-    // Check if all pieces are placed (inventory should be empty)
-    const totalPiecesInInventory = Object.values(
-      placementState.availablePieces
-    ).reduce((sum, count) => sum + count, 0);
+  public validatePlacementCompletion(
+    placementState: PlacementGameState,
+    context?: ValidationContext
+  ): PlacementOperationResult<void> {
+    const validationContext: ValidationContext = context || {
+      gameId: placementState.gameId,
+      playerId: placementState.playerId,
+      operationType: "PLACEMENT_COMPLETION_VALIDATION",
+      timestamp: Date.now(),
+    };
 
-    if (totalPiecesInInventory > 0) {
-      return {
-        valid: false,
-        error: `${totalPiecesInInventory} peças ainda precisam ser posicionadas`,
-      };
-    }
-
-    // Check if we have exactly 40 pieces placed
-    if (placementState.placedPieces.length !== 40) {
-      return {
-        valid: false,
-        error: `Número incorreto de peças: ${placementState.placedPieces.length}/40`,
-      };
-    }
-
-    // Validate piece composition
-    const pieceComposition: { [patente: string]: number } = {};
-    placementState.placedPieces.forEach((piece) => {
-      pieceComposition[piece.patente] =
-        (pieceComposition[piece.patente] || 0) + 1;
-    });
-
-    // Check if composition matches the required inventory
-    for (const [patente, requiredCount] of Object.entries(
-      INITIAL_PIECE_INVENTORY
-    )) {
-      const actualCount = pieceComposition[patente] || 0;
-      if (actualCount !== requiredCount) {
-        return {
-          valid: false,
-          error: `Composição incorreta: ${
-            Patentes[patente]?.nome || patente
-          } - esperado ${requiredCount}, atual ${actualCount}`,
-        };
-      }
-    }
-
-    // Check if all pieces are in player's area
-    const invalidPieces = placementState.placedPieces.filter(
-      (piece) => !placementState.playerArea.includes(piece.posicao.linha)
+    const result = this.errorHandler.validatePlacementCompletion(
+      placementState,
+      validationContext
     );
 
-    if (invalidPieces.length > 0) {
-      return {
-        valid: false,
-        error: "Algumas peças estão fora da área do jogador",
-      };
+    if (result.isValid) {
+      return { success: true };
+    } else {
+      return { success: false, error: result.error };
     }
-
-    return { valid: true };
   }
 
   /**
    * Confirms player's placement and updates status
    */
-  public confirmPlacement(placementState: PlacementGameState): {
-    success: boolean;
-    newState?: PlacementGameState;
-    error?: string;
-  } {
-    const validation = this.validatePlacementCompletion(placementState);
+  public confirmPlacement(
+    placementState: PlacementGameState,
+    context?: ValidationContext
+  ): PlacementOperationResult<PlacementGameState> {
+    const validationContext: ValidationContext = context || {
+      gameId: placementState.gameId,
+      playerId: placementState.playerId,
+      operationType: "PLACEMENT_CONFIRMATION",
+      timestamp: Date.now(),
+    };
 
-    if (!validation.valid) {
+    const validation = this.validatePlacementCompletion(
+      placementState,
+      validationContext
+    );
+
+    if (!validation.success) {
       return { success: false, error: validation.error };
     }
 
-    const newState: PlacementGameState = {
-      ...placementState,
-      localStatus: PlacementStatus.Ready,
-    };
+    try {
+      const newState: PlacementGameState = {
+        ...placementState,
+        localStatus: PlacementStatus.Ready,
+      };
 
-    return { success: true, newState };
+      return { success: true, data: newState };
+    } catch (error) {
+      const errorDetails = this.errorHandler.createError(
+        "INTERNAL_SERVER_ERROR" as any,
+        `Failed to confirm placement: ${error}`,
+        "Erro interno ao confirmar posicionamento",
+        validationContext,
+        { originalError: String(error) }
+      );
+
+      return { success: false, error: errorDetails };
+    }
   }
 
   /**
@@ -349,5 +393,68 @@ export class PlacementManager {
     [patente: string]: number;
   } {
     return { ...placementState.availablePieces };
+  }
+
+  /**
+   * Validates game state and player authorization
+   */
+  public validateGameStateAndAuth(
+    gameId: string,
+    playerId: string,
+    context?: ValidationContext
+  ): PlacementOperationResult<void> {
+    const validationContext: ValidationContext = context || {
+      gameId,
+      playerId,
+      operationType: "AUTH_VALIDATION",
+      timestamp: Date.now(),
+    };
+
+    const result = this.errorHandler.validateGameStateAndAuth(
+      gameId,
+      playerId,
+      validationContext
+    );
+
+    if (result.isValid) {
+      return { success: true };
+    } else {
+      return { success: false, error: result.error };
+    }
+  }
+
+  /**
+   * Gets error handler for debugging and monitoring
+   */
+  public getErrorHandler(): PlacementErrorHandler {
+    return this.errorHandler;
+  }
+
+  /**
+   * Gets recent error logs for debugging
+   */
+  public getRecentLogs(count: number = 50) {
+    return this.errorHandler.getRecentLogs(count);
+  }
+
+  /**
+   * Gets rate limiting statistics
+   */
+  public getRateLimitStats() {
+    return this.errorHandler.getRateLimitStats();
+  }
+
+  /**
+   * Clears rate limits (for testing or admin purposes)
+   */
+  public clearRateLimits(): void {
+    this.errorHandler.clearRateLimits();
+  }
+
+  /**
+   * Clears error logs (for testing or admin purposes)
+   */
+  public clearLogs(): void {
+    this.errorHandler.clearLogs();
   }
 }
