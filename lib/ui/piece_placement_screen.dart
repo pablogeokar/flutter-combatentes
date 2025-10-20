@@ -108,6 +108,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
     // Configura o estado inicial no controller
     _controller.updateState(widget.initialState);
 
+    // Inicializa o coordenador de múltiplas instâncias
+    _controller.initializeMultiInstanceCoordinator(widget.initialState);
+
     // Remove peças já posicionadas do inventário
     for (final peca in widget.initialState.placedPieces) {
       _inventory.removePiece(peca.patente);

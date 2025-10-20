@@ -4,6 +4,7 @@ import 'modelos_jogo.dart';
 import 'game_socket_service.dart';
 import 'placement_error_handler.dart';
 import 'services/placement_persistence.dart';
+import 'services/multi_instance_coordinator.dart';
 import 'providers.dart';
 
 /// Controlador para gerenciar a lógica de posicionamento de peças.
@@ -140,6 +141,60 @@ class PlacementController extends ChangeNotifier {
   /// Se está executando uma operação de retry.
   bool get isRetrying => _isRetrying;
 
+  /// Inicializa o coordenador de múltiplas instâncias.
+  void initializeMultiInstanceCoordinator(PlacementGameState initialState) {
+    try {
+      MultiInstanceCoordinator.instance.startMonitoring(
+        gameId: initialState.gameId,
+        playerId: initialState.playerId,
+        onStateChanged: _handleMultiInstanceStateChange,
+      );
+
+      debugPrint(
+        'PlacementController: Coordenador de múltiplas instâncias iniciado',
+      );
+    } catch (e) {
+      debugPrint('MultiInstanceCoordinator não disponível: $e');
+    }
+  }
+
+  /// Manipula mudanças de estado de outras instâncias.
+  void _handleMultiInstanceStateChange(MultiInstanceGameState multiState) {
+    if (_currentState == null) return;
+
+    // Verifica se há mudanças no status do oponente
+    final otherPlayers = multiState.players.keys
+        .where((playerId) => playerId != _currentState!.playerId)
+        .toList();
+
+    if (otherPlayers.isNotEmpty) {
+      final opponentId = otherPlayers.first;
+      final opponentStatus = multiState.getPlayerStatus(opponentId);
+
+      if (opponentStatus != null &&
+          opponentStatus != _currentState!.opponentStatus) {
+        debugPrint(
+          'PlacementController: Status do oponente mudou para $opponentStatus',
+        );
+
+        // Atualiza o estado local com o status do oponente
+        final updatedState = PlacementGameState(
+          gameId: _currentState!.gameId,
+          playerId: _currentState!.playerId,
+          availablePieces: _currentState!.availablePieces,
+          placedPieces: _currentState!.placedPieces,
+          playerArea: _currentState!.playerArea,
+          localStatus: _currentState!.localStatus,
+          opponentStatus: opponentStatus,
+          selectedPieceType: _currentState!.selectedPieceType,
+          gamePhase: _currentState!.gamePhase,
+        );
+
+        updateState(updatedState);
+      }
+    }
+  }
+
   /// Atualiza o estado do posicionamento.
   void updateState(PlacementGameState newState) {
     _currentState = newState;
@@ -149,6 +204,18 @@ class PlacementController extends ChangeNotifier {
 
     // Salva estado automaticamente
     _saveCurrentState();
+
+    // Atualiza o coordenador de múltiplas instâncias (se disponível)
+    try {
+      MultiInstanceCoordinator.instance.updatePlayerStatus(
+        gameId: newState.gameId,
+        playerId: newState.playerId,
+        status: newState.localStatus,
+      );
+    } catch (e) {
+      // Ignora erros do coordenador durante testes
+      debugPrint('MultiInstanceCoordinator não disponível: $e');
+    }
 
     // Verifica se deve iniciar countdown
     debugPrint(
@@ -294,16 +361,13 @@ class PlacementController extends ChangeNotifier {
         );
         updateState(waitingState);
 
-        // TODO: Remover esta simulação quando integração real estiver funcionando
-        // Simula o oponente ficando pronto após 2 segundos para teste
+        // O coordenador de múltiplas instâncias cuidará da sincronização
         debugPrint(
-          'PlacementController: Simulando oponente ficando pronto em 2 segundos...',
+          'PlacementController: Aguardando oponente via coordenador de múltiplas instâncias...',
         );
-        Timer(const Duration(seconds: 2), () {
-          if (_currentState?.localStatus == PlacementStatus.waiting) {
-            simulateOpponentReady();
-          }
-        });
+
+        // SIMULAÇÃO DE OPONENTE PARA TESTE (remove quando tiver servidor real)
+        _simulateOpponentAfterDelay();
       }
     } catch (e) {
       // Reverte status em caso de erro
@@ -1020,12 +1084,46 @@ class PlacementController extends ChangeNotifier {
     }
   }
 
+  /// Simula um oponente ficando pronto após um delay (para testes).
+  /// REMOVER quando tiver servidor real.
+  void _simulateOpponentAfterDelay() {
+    Timer(const Duration(seconds: 3), () {
+      if (_currentState != null &&
+          _currentState!.localStatus == PlacementStatus.waiting &&
+          _currentState!.opponentStatus != PlacementStatus.ready) {
+        debugPrint('🤖 SIMULAÇÃO: Oponente ficou pronto!');
+
+        // Simula oponente ficando pronto
+        final simulatedState = PlacementGameState(
+          gameId: _currentState!.gameId,
+          playerId: _currentState!.playerId,
+          availablePieces: _currentState!.availablePieces,
+          placedPieces: _currentState!.placedPieces,
+          playerArea: _currentState!.playerArea,
+          localStatus: PlacementStatus.ready,
+          opponentStatus: PlacementStatus.ready,
+          selectedPieceType: _currentState!.selectedPieceType,
+          gamePhase: _currentState!.gamePhase,
+        );
+
+        updateState(simulatedState);
+      }
+    });
+  }
+
   @override
   void dispose() {
     _countdownTimer?.cancel();
     _messageSubscription?.cancel();
     _connectionWatchdog?.cancel();
     _opponentReconnectionTimer?.cancel();
+
+    try {
+      MultiInstanceCoordinator.instance.stopMonitoring();
+    } catch (e) {
+      debugPrint('Erro ao parar MultiInstanceCoordinator: $e');
+    }
+
     super.dispose();
   }
 }
