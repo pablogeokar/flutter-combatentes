@@ -87,6 +87,21 @@ class GameSocketService {
                     data['payload']?['mensagem'] ??
                     'Erro desconhecido do servidor.';
                 _erroController.add(erro);
+              } else if (type == 'PLACEMENT_OPPONENT_DISCONNECTED') {
+                _statusController.add(StatusConexao.oponenteDesconectado);
+                final mensagem =
+                    data['data']?['message'] ?? 'Oponente desconectou';
+                _erroController.add(mensagem);
+              } else if (type == 'PLACEMENT_OPPONENT_RECONNECTED') {
+                _statusController.add(StatusConexao.conectado);
+                final mensagem =
+                    data['data']?['message'] ?? 'Oponente reconectou';
+                _erroController.add(mensagem);
+              } else if (type == 'PLACEMENT_OPPONENT_ABANDONED') {
+                _statusController.add(StatusConexao.oponenteDesconectado);
+                final mensagem =
+                    data['data']?['message'] ?? 'Oponente abandonou o jogo';
+                _erroController.add(mensagem);
               } else if (type == 'mensagemServidor') {
                 final mensagem = data['payload'].toString();
 
@@ -212,6 +227,67 @@ class GameSocketService {
     Future.delayed(const Duration(milliseconds: 500), () {
       connect(url, nomeUsuario: nomeUsuario);
     });
+  }
+
+  /// Reconecta especificamente durante a fase de posicionamento
+  Future<bool> reconnectDuringPlacement(
+    String url, {
+    String? nomeUsuario,
+  }) async {
+    try {
+      // Emite status de reconectando
+      _statusController.add(StatusConexao.conectando);
+
+      // Fecha conexão atual
+      try {
+        _channel?.sink.close();
+      } catch (e) {
+        // Ignora erros ao fechar conexão anterior
+      }
+
+      _channel = null;
+      _isConnecting = false;
+      _isConnected = false;
+
+      // Aguarda um pouco antes de reconectar
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Tenta reconectar
+      connect(url, nomeUsuario: nomeUsuario);
+
+      // Aguarda conexão ou timeout
+      final completer = Completer<bool>();
+      late StreamSubscription subscription;
+
+      subscription = streamDeStatus.listen((status) {
+        if (status == StatusConexao.conectado ||
+            status == StatusConexao.jogando) {
+          subscription.cancel();
+          completer.complete(true);
+        } else if (status == StatusConexao.erro) {
+          subscription.cancel();
+          completer.complete(false);
+        }
+      });
+
+      // Timeout de 10 segundos para reconexão
+      Timer(const Duration(seconds: 10), () {
+        if (!completer.isCompleted) {
+          subscription.cancel();
+          completer.complete(false);
+        }
+      });
+
+      return await completer.future;
+    } catch (e) {
+      _statusController.add(StatusConexao.erro);
+      return false;
+    }
+  }
+
+  /// Envia mensagem de posicionamento
+  void enviarMensagemPlacement(Map<String, dynamic> message) {
+    _sendMessage(message);
   }
 
   /// Fecha a conexão com o WebSocket.

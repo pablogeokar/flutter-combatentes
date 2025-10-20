@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:math' as math;
 
 import '../modelos_jogo.dart';
 import '../piece_inventory.dart';
+import '../placement_error_handler.dart';
 import 'military_theme_widgets.dart';
 import 'peca_widget.dart';
 
@@ -511,48 +513,33 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
 
   /// Valida uma posição para drop com mensagem de erro detalhada.
   ValidationResult _validateDropPosition(PosicaoTabuleiro position) {
-    // Deve estar na área do jogador
-    if (!widget.playerArea.contains(position.linha)) {
+    // Converte Map<String, int> para Map<Patente, int>
+    final availablePiecesEnum = <Patente, int>{};
+    widget.inventory.availablePieces.forEach((key, value) {
+      final patente = Patente.values.firstWhere(
+        (p) => p.name == key,
+        orElse: () => Patente.soldado, // fallback
+      );
+      availablePiecesEnum[patente] = value;
+    });
+
+    // Usa o sistema de validação centralizado
+    final result = PlacementErrorHandler.validatePlacementOperation(
+      position: position,
+      playerArea: widget.playerArea,
+      selectedPiece: widget.selectedPieceType,
+      availablePieces: availablePiecesEnum,
+      placedPieces: widget.placedPieces,
+    );
+
+    if (result.isSuccess) {
+      return ValidationResult(isValid: true);
+    } else {
       return ValidationResult(
         isValid: false,
-        errorMessage: 'Posição fora da sua área de posicionamento',
+        errorMessage: result.error!.userMessage,
       );
     }
-
-    // Não deve ser um lago
-    if (_isLakePosition(position)) {
-      return ValidationResult(
-        isValid: false,
-        errorMessage: 'Não é possível posicionar peças em lagos',
-      );
-    }
-
-    // Verifica se há peça selecionada
-    if (widget.selectedPieceType == null) {
-      return ValidationResult(
-        isValid: false,
-        errorMessage: 'Selecione uma peça primeiro',
-      );
-    }
-
-    // Verifica se há peças disponíveis no inventário
-    if (widget.inventory.getAvailableCount(widget.selectedPieceType!) <= 0) {
-      return ValidationResult(
-        isValid: false,
-        errorMessage: 'Não há mais peças deste tipo disponíveis',
-      );
-    }
-
-    // Posição deve estar vazia ou ocupada por peça que pode ser trocada
-    final existingPiece = _getPieceAtPosition(position);
-    if (existingPiece != null && existingPiece.equipe != widget.playerTeam) {
-      return ValidationResult(
-        isValid: false,
-        errorMessage: 'Posição ocupada por peça do oponente',
-      );
-    }
-
-    return ValidationResult(isValid: true);
   }
 
   /// Verifica se uma posição é válida para drop (versão simplificada).
@@ -593,10 +580,11 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
   void _handlePositionTap(PosicaoTabuleiro position) {
     if (!widget.enabled) return;
 
-    if (_isValidDropPosition(position)) {
+    final validation = _validateDropPosition(position);
+    if (validation.isValid) {
       widget.onPositionTap(position);
     } else {
-      _showInvalidPositionFeedback();
+      _showInvalidPositionFeedback(validation.errorMessage);
     }
   }
 
@@ -604,10 +592,11 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
   void _handlePieceDrop(String pieceId, PosicaoTabuleiro position) {
     if (!widget.enabled) return;
 
-    if (_isValidDropPosition(position)) {
+    final validation = _validateDropPosition(position);
+    if (validation.isValid) {
       widget.onPieceDrag(pieceId, position);
     } else {
-      _showInvalidPositionFeedback();
+      _showInvalidPositionFeedback(validation.errorMessage);
     }
   }
 
@@ -627,18 +616,17 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
   }
 
   /// Mostra feedback visual para posição inválida.
-  void _showInvalidPositionFeedback() {
+  void _showInvalidPositionFeedback([String? message]) {
     _feedbackController?.forward().then((_) {
       _feedbackController?.reverse();
     });
 
-    // Mostra mensagem de erro se disponível
-    if (_errorMessage != null) {
-      _showErrorSnackBar(_errorMessage!);
-    }
+    // Mostra mensagem de erro
+    final errorMsg = message ?? _errorMessage ?? 'Posição inválida';
+    _showErrorSnackBar(errorMsg);
 
-    // Feedback háptico
-    // HapticFeedback.lightImpact();
+    // Feedback háptico para posição inválida
+    HapticFeedback.lightImpact();
   }
 
   /// Inicia animação de hover.

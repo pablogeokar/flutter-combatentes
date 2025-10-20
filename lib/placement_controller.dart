@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'modelos_jogo.dart';
 import 'game_socket_service.dart';
+import 'placement_error_handler.dart';
+import 'services/placement_persistence.dart';
+import 'providers.dart';
 
 /// Controlador para gerenciar a lógica de posicionamento de peças.
 class PlacementController extends ChangeNotifier {
@@ -12,21 +15,110 @@ class PlacementController extends ChangeNotifier {
   int _countdownSeconds = 3;
   bool _isGameStarting = false;
 
+  /// Configuração para retry de operações.
+  final RetryConfig _retryConfig;
+
+  /// Último erro ocorrido.
+  PlacementError? _lastError;
+
+  /// Se está executando uma operação de retry.
+  bool _isRetrying = false;
+
   StreamSubscription? _messageSubscription;
 
-  PlacementController(this._socketService) {
+  /// Timer para detectar desconexões durante posicionamento.
+  Timer? _connectionWatchdog;
+
+  /// Se está tentando reconectar.
+  bool _isReconnecting = false;
+
+  /// Timestamp da última atividade de rede.
+  DateTime? _lastNetworkActivity;
+
+  /// Timeout para considerar desconexão (30 segundos).
+  static const Duration _connectionTimeout = Duration(seconds: 30);
+
+  /// Timeout para aguardar reconexão do oponente (60 segundos).
+  static const Duration _opponentReconnectionTimeout = Duration(seconds: 60);
+
+  /// Timer para timeout de reconexão do oponente.
+  Timer? _opponentReconnectionTimer;
+
+  PlacementController(this._socketService, {RetryConfig? retryConfig})
+    : _retryConfig = retryConfig ?? const RetryConfig() {
     // Escuta mensagens do socket service através do stream
-    _messageSubscription = _socketService.streamDeEstados.listen((estado) {
-      // Processa atualizações de estado do jogo
-      _handleGameStateUpdate(estado);
-    });
+    _messageSubscription = _socketService.streamDeEstados.listen(
+      (estado) {
+        // Processa atualizações de estado do jogo
+        _handleGameStateUpdate(estado);
+      },
+      onError: (error) {
+        // Manipula erros do stream
+        _handleStreamError(error);
+      },
+    );
+
+    // Escuta status de conexão para detectar desconexões
+    _socketService.streamDeStatus.listen(
+      (status) {
+        _handleConnectionStatusChange(status);
+      },
+      onError: (error) {
+        debugPrint('Erro no stream de status: $error');
+      },
+    );
+
+    // Inicia watchdog de conexão
+    _startConnectionWatchdog();
   }
 
   /// Manipula atualizações de estado do jogo.
   void _handleGameStateUpdate(EstadoJogo estado) {
-    // Por enquanto, apenas log da atualização
-    // TODO: Implementar lógica específica para placement quando o servidor suportar
-    debugPrint('Recebida atualização de estado do jogo: ${estado.idPartida}');
+    try {
+      // Limpa erro anterior se recebeu atualização com sucesso
+      _clearError();
+      _lastNetworkActivity = DateTime.now();
+
+      // Por enquanto, apenas log da atualização
+      // TODO: Implementar lógica específica para placement quando o servidor suportar
+      debugPrint('Recebida atualização de estado do jogo: ${estado.idPartida}');
+    } catch (e) {
+      _handleError(
+        PlacementError.networkError(
+          operation: 'game state update',
+          originalError: e,
+        ),
+      );
+    }
+  }
+
+  /// Manipula erros do stream de mensagens.
+  void _handleStreamError(Object error) {
+    final placementError = PlacementError.networkError(
+      operation: 'message stream',
+      originalError: error,
+    );
+    _handleError(placementError);
+  }
+
+  /// Manipula um erro de posicionamento.
+  void _handleError(PlacementError error) {
+    _lastError = error;
+    debugPrint('PlacementController error: $error');
+    notifyListeners();
+  }
+
+  /// Limpa o último erro.
+  void _clearError() {
+    if (_lastError != null) {
+      _lastError = null;
+      notifyListeners();
+    }
+  }
+
+  /// Limpa o último erro (método público).
+  void clearError() {
+    _clearError();
   }
 
   /// Estado atual do posicionamento.
@@ -38,9 +130,18 @@ class PlacementController extends ChangeNotifier {
   /// Segundos restantes do countdown.
   int get countdownSeconds => _countdownSeconds;
 
+  /// Último erro ocorrido.
+  PlacementError? get lastError => _lastError;
+
+  /// Se está executando uma operação de retry.
+  bool get isRetrying => _isRetrying;
+
   /// Atualiza o estado do posicionamento.
   void updateState(PlacementGameState newState) {
     _currentState = newState;
+
+    // Salva estado automaticamente
+    _saveCurrentState();
 
     // Verifica se deve iniciar countdown
     if (newState.localStatus == PlacementStatus.ready &&
@@ -53,12 +154,81 @@ class PlacementController extends ChangeNotifier {
   }
 
   /// Confirma o posicionamento do jogador local.
-  Future<void> confirmPlacement() async {
-    if (_currentState == null || !_currentState!.canConfirm) {
-      return;
+  Future<PlacementResult<void>> confirmPlacement() async {
+    if (_currentState == null) {
+      final error = PlacementError(
+        type: PlacementErrorType.invalidGameState,
+        userMessage: 'Estado do jogo inválido',
+      );
+      _handleError(error);
+      return PlacementResult.failure(error);
+    }
+
+    // Valida se o posicionamento está completo
+    // Convert String keys to Patente enum for validation
+    final availablePiecesEnum = <Patente, int>{};
+    _currentState!.availablePieces.forEach((key, value) {
+      final patente = Patente.values.firstWhere(
+        (p) => p.name == key,
+        orElse: () => throw ArgumentError('Invalid patente: $key'),
+      );
+      availablePiecesEnum[patente] = value;
+    });
+
+    final validationResult = PlacementErrorHandler.validatePlacementCompletion(
+      availablePieces: availablePiecesEnum,
+    );
+
+    if (validationResult.isFailure) {
+      _handleError(validationResult.error!);
+      return validationResult;
+    }
+
+    if (!_currentState!.canConfirm) {
+      // Convert String keys to Patente enum for error reporting
+      final missingTypes = <Patente>[];
+      _currentState!.availablePieces.entries
+          .where((entry) => entry.value > 0)
+          .forEach((entry) {
+            final patente = Patente.values.firstWhere(
+              (p) => p.name == entry.key,
+              orElse: () =>
+                  throw ArgumentError('Invalid patente: ${entry.key}'),
+            );
+            missingTypes.add(patente);
+          });
+
+      final error = PlacementError.incompletePlacement(
+        remainingPieces: _currentState!.availablePieces.values.fold(
+          0,
+          (sum, count) => sum + count,
+        ),
+        missingTypes: missingTypes,
+      );
+      _handleError(error);
+      return PlacementResult.failure(error);
+    }
+
+    // Executa confirmação com retry automático
+    return await PlacementErrorHandler.executeWithRetry(
+      () => _executeConfirmPlacement(),
+      retryConfig: _retryConfig,
+      operationName: 'confirm placement',
+    );
+  }
+
+  /// Executa a confirmação do posicionamento.
+  Future<void> _executeConfirmPlacement() async {
+    if (_currentState == null) {
+      throw PlacementError(
+        type: PlacementErrorType.invalidGameState,
+        userMessage: 'Estado do jogo inválido',
+      );
     }
 
     try {
+      _clearError();
+
       // Atualiza status local para ready
       final updatedState = PlacementGameState(
         gameId: _currentState!.gameId,
@@ -81,9 +251,8 @@ class PlacementController extends ChangeNotifier {
         allPieces: _currentState!.placedPieces,
       );
 
-      // Para agora, vamos usar um método temporário
-      // TODO: Adicionar método público no GameSocketService para enviar mensagens de placement
-      debugPrint('Enviando mensagem de placement: ${message.toJson()}');
+      // Simula envio para o servidor com timeout
+      await _sendMessageWithTimeout(message);
 
       // Se oponente já está pronto, inicia countdown
       if (_currentState!.opponentStatus == PlacementStatus.ready) {
@@ -104,7 +273,6 @@ class PlacementController extends ChangeNotifier {
         updateState(waitingState);
       }
     } catch (e) {
-      debugPrint('Erro ao confirmar posicionamento: $e');
       // Reverte status em caso de erro
       if (_currentState != null) {
         final revertedState = PlacementGameState(
@@ -120,7 +288,26 @@ class PlacementController extends ChangeNotifier {
         );
         updateState(revertedState);
       }
+
+      // Re-lança o erro para ser capturado pelo retry handler
+      rethrow;
     }
+  }
+
+  /// Envia mensagem para o servidor com timeout.
+  Future<void> _sendMessageWithTimeout(PlacementMessage message) async {
+    // TODO: Implementar envio real quando GameSocketService suportar
+    // Por enquanto, simula envio com possível timeout
+
+    debugPrint('Enviando mensagem de placement: ${message.toJson()}');
+
+    // Simula delay de rede
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Simula possível timeout (para teste)
+    // if (Random().nextBool()) {
+    //   throw TimeoutException('Server timeout', const Duration(seconds: 30));
+    // }
   }
 
   /// Inicia o countdown para início do jogo.
@@ -269,6 +456,98 @@ class PlacementController extends ChangeNotifier {
     updateState(gameStartState);
   }
 
+  /// Valida uma operação de posicionamento de peça.
+  PlacementResult<void> validatePiecePlacement({
+    required PosicaoTabuleiro position,
+    required Patente pieceType,
+  }) {
+    if (_currentState == null) {
+      return PlacementResult.failure(
+        PlacementError(
+          type: PlacementErrorType.invalidGameState,
+          userMessage: 'Estado do jogo inválido',
+        ),
+      );
+    }
+
+    // Convert String keys to Patente enum for validation
+    final availablePiecesEnum = <Patente, int>{};
+    _currentState!.availablePieces.forEach((key, value) {
+      final patente = Patente.values.firstWhere(
+        (p) => p.name == key,
+        orElse: () => throw ArgumentError('Invalid patente: $key'),
+      );
+      availablePiecesEnum[patente] = value;
+    });
+
+    return PlacementErrorHandler.validatePlacementOperation(
+      position: position,
+      playerArea: _currentState!.playerArea,
+      selectedPiece: pieceType,
+      availablePieces: availablePiecesEnum,
+      placedPieces: _currentState!.placedPieces,
+    );
+  }
+
+  /// Executa posicionamento de peça com validação.
+  PlacementResult<void> placePiece({
+    required PosicaoTabuleiro position,
+    required Patente pieceType,
+  }) {
+    // Valida a operação
+    final validation = validatePiecePlacement(
+      position: position,
+      pieceType: pieceType,
+    );
+
+    if (validation.isFailure) {
+      _handleError(validation.error!);
+      return validation;
+    }
+
+    try {
+      _clearError();
+
+      // Executa o posicionamento
+      // Esta lógica será implementada pela UI que chama este método
+      // O controller apenas valida e reporta erros
+
+      return PlacementResult.success(null);
+    } catch (e) {
+      final error = PlacementError.networkError(
+        operation: 'place piece',
+        originalError: e,
+      );
+      _handleError(error);
+      return PlacementResult.failure(error);
+    }
+  }
+
+  /// Executa retry de uma operação falhada.
+  Future<PlacementResult<T>> retryOperation<T>(
+    Future<PlacementResult<T>> Function() operation,
+  ) async {
+    if (_isRetrying) {
+      return PlacementResult.failure(
+        PlacementError(
+          type: PlacementErrorType.invalidGameState,
+          userMessage: 'Operação de retry já em andamento',
+        ),
+      );
+    }
+
+    _isRetrying = true;
+    notifyListeners();
+
+    try {
+      final result = await operation();
+      return result;
+    } finally {
+      _isRetrying = false;
+      notifyListeners();
+    }
+  }
+
   /// Reseta o estado do posicionamento.
   void reset() {
     _countdownTimer?.cancel();
@@ -276,13 +555,375 @@ class PlacementController extends ChangeNotifier {
     _isGameStarting = false;
     _countdownSeconds = 3;
     _currentState = null;
+    _lastError = null;
+    _isRetrying = false;
     notifyListeners();
+  }
+
+  // ===== DISCONNECTION HANDLING METHODS =====
+
+  /// Inicia o watchdog de conexão para detectar desconexões.
+  void _startConnectionWatchdog() {
+    _connectionWatchdog?.cancel();
+    _lastNetworkActivity = DateTime.now();
+
+    _connectionWatchdog = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_currentState != null && _lastNetworkActivity != null) {
+        final timeSinceLastActivity = DateTime.now().difference(
+          _lastNetworkActivity!,
+        );
+
+        if (timeSinceLastActivity > _connectionTimeout) {
+          _handleConnectionTimeout();
+        }
+      }
+    });
+  }
+
+  /// Manipula mudanças no status de conexão.
+  void _handleConnectionStatusChange(StatusConexao status) {
+    _lastNetworkActivity = DateTime.now();
+
+    switch (status) {
+      case StatusConexao.desconectado:
+      case StatusConexao.erro:
+        _handleDisconnection();
+        break;
+      case StatusConexao.conectado:
+      case StatusConexao.jogando:
+        if (_isReconnecting) {
+          _handleReconnectionSuccess();
+        }
+        break;
+      case StatusConexao.oponenteDesconectado:
+        _handleOpponentDisconnection();
+        break;
+      default:
+        break;
+    }
+  }
+
+  /// Manipula timeout de conexão.
+  void _handleConnectionTimeout() {
+    if (_currentState != null && !_isReconnecting) {
+      debugPrint('Timeout de conexão detectado durante posicionamento');
+      _handleDisconnection();
+    }
+  }
+
+  /// Manipula desconexão durante posicionamento.
+  void _handleDisconnection() {
+    if (_currentState == null || _isReconnecting) return;
+
+    debugPrint('Desconexão detectada durante posicionamento');
+    _isReconnecting = true;
+
+    // Salva estado atual
+    _saveCurrentState();
+
+    // Notifica sobre desconexão
+    final error = PlacementError(
+      type: PlacementErrorType.networkError,
+      userMessage: 'Conexão perdida. Tentando reconectar...',
+    );
+    _handleError(error);
+
+    // Inicia tentativas de reconexão
+    _startReconnectionAttempts();
+
+    notifyListeners();
+  }
+
+  /// Salva o estado atual para recuperação após reconexão.
+  Future<void> _saveCurrentState() async {
+    if (_currentState != null) {
+      final success = await PlacementPersistence.savePlacementState(
+        _currentState!,
+      );
+      if (success) {
+        debugPrint('Estado de posicionamento salvo com sucesso');
+      } else {
+        debugPrint('Falha ao salvar estado de posicionamento');
+      }
+    }
+  }
+
+  /// Inicia tentativas de reconexão.
+  void _startReconnectionAttempts() {
+    // Implementa tentativas de reconexão com backoff exponencial
+    _attemptReconnection(1);
+  }
+
+  /// Tenta reconectar com backoff exponencial.
+  void _attemptReconnection(int attempt) async {
+    if (!_isReconnecting || attempt > 5) {
+      // Máximo de 5 tentativas
+      if (_isReconnecting) {
+        _handleReconnectionFailure();
+      }
+      return;
+    }
+
+    debugPrint('Tentativa de reconexão $attempt/5');
+
+    try {
+      // TODO: Obter URL do servidor de configuração
+      const serverUrl = 'ws://localhost:8083'; // Placeholder
+
+      // TODO: Obter nome do usuário de UserPreferences
+      // final userName = await UserPreferences.getUserName();
+
+      final success = await _socketService.reconnectDuringPlacement(
+        serverUrl,
+        // nomeUsuario: userName,
+      );
+
+      if (success && _isReconnecting) {
+        _handleReconnectionSuccess();
+      } else if (_isReconnecting) {
+        // Aguarda antes da próxima tentativa (backoff exponencial)
+        final delay = Duration(seconds: (attempt * 2).clamp(2, 30));
+        Timer(delay, () => _attemptReconnection(attempt + 1));
+      }
+    } catch (e) {
+      debugPrint('Erro na tentativa de reconexão: $e');
+
+      if (_isReconnecting) {
+        // Aguarda antes da próxima tentativa
+        final delay = Duration(seconds: (attempt * 2).clamp(2, 30));
+        Timer(delay, () => _attemptReconnection(attempt + 1));
+      }
+    }
+  }
+
+  /// Manipula falha completa na reconexão.
+  void _handleReconnectionFailure() {
+    debugPrint('Falha completa na reconexão após múltiplas tentativas');
+
+    _isReconnecting = false;
+
+    final error = PlacementError(
+      type: PlacementErrorType.networkError,
+      userMessage:
+          'Não foi possível reconectar. Verifique sua conexão e tente novamente.',
+    );
+    _handleError(error);
+
+    notifyListeners();
+  }
+
+  /// Manipula sucesso na reconexão.
+  void _handleReconnectionSuccess() {
+    if (!_isReconnecting) return;
+
+    debugPrint('Reconexão bem-sucedida');
+    _isReconnecting = false;
+    _clearError();
+
+    // Restaura estado salvo
+    _restoreStateAfterReconnection();
+
+    notifyListeners();
+  }
+
+  /// Restaura estado após reconexão bem-sucedida.
+  Future<void> _restoreStateAfterReconnection() async {
+    try {
+      final savedState = await PlacementPersistence.loadPlacementState();
+
+      if (savedState != null) {
+        debugPrint('Estado de posicionamento restaurado após reconexão');
+        updateState(savedState);
+
+        // Sincroniza com servidor
+        await _syncStateWithServer(savedState);
+      } else {
+        debugPrint('Nenhum estado salvo encontrado após reconexão');
+      }
+    } catch (e) {
+      debugPrint('Erro ao restaurar estado após reconexão: $e');
+
+      final error = PlacementError(
+        type: PlacementErrorType.invalidGameState,
+        userMessage: 'Erro ao restaurar posicionamento. Reinicie o jogo.',
+      );
+      _handleError(error);
+    }
+  }
+
+  /// Sincroniza estado local com servidor após reconexão.
+  Future<void> _syncStateWithServer(PlacementGameState state) async {
+    try {
+      // TODO: Implementar sincronização real quando servidor suportar
+      // Por enquanto, apenas simula sincronização
+
+      debugPrint('Sincronizando estado com servidor...');
+
+      // Simula delay de sincronização
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      debugPrint('Estado sincronizado com servidor');
+    } catch (e) {
+      debugPrint('Erro ao sincronizar com servidor: $e');
+
+      final error = PlacementError.networkError(
+        operation: 'sync state',
+        originalError: e,
+      );
+      _handleError(error);
+    }
+  }
+
+  /// Manipula desconexão do oponente.
+  void _handleOpponentDisconnection() {
+    if (_currentState == null) return;
+
+    debugPrint('Oponente desconectou durante posicionamento');
+
+    // Atualiza status do oponente
+    final updatedState = PlacementGameState(
+      gameId: _currentState!.gameId,
+      playerId: _currentState!.playerId,
+      availablePieces: _currentState!.availablePieces,
+      placedPieces: _currentState!.placedPieces,
+      playerArea: _currentState!.playerArea,
+      localStatus: _currentState!.localStatus,
+      opponentStatus: PlacementStatus.placing, // Reset para placing
+      selectedPieceType: _currentState!.selectedPieceType,
+      gamePhase: _currentState!.gamePhase,
+    );
+
+    updateState(updatedState);
+
+    // Inicia timer para aguardar reconexão do oponente
+    _startOpponentReconnectionTimer();
+
+    // Notifica usuário
+    final error = PlacementError(
+      type: PlacementErrorType.networkError,
+      userMessage: 'Oponente desconectou. Aguardando reconexão...',
+    );
+    _handleError(error);
+  }
+
+  /// Inicia timer para aguardar reconexão do oponente.
+  void _startOpponentReconnectionTimer() {
+    _opponentReconnectionTimer?.cancel();
+
+    _opponentReconnectionTimer = Timer(_opponentReconnectionTimeout, () {
+      _handleOpponentReconnectionTimeout();
+    });
+  }
+
+  /// Manipula timeout de reconexão do oponente.
+  void _handleOpponentReconnectionTimeout() {
+    debugPrint('Timeout de reconexão do oponente');
+
+    // Limpa estado salvo
+    PlacementPersistence.clearPlacementState();
+
+    // Notifica que deve retornar para matchmaking
+    final error = PlacementError(
+      type: PlacementErrorType.opponentDisconnected,
+      userMessage:
+          'Oponente não reconectou. Retornando para busca de oponente.',
+    );
+    _handleError(error);
+
+    // Reset do estado
+    reset();
+  }
+
+  /// Restaura estado salvo ao inicializar.
+  Future<PlacementGameState?> restoreSavedState() async {
+    try {
+      final savedState = await PlacementPersistence.loadPlacementState();
+
+      if (savedState != null) {
+        debugPrint('Estado de posicionamento restaurado da persistência');
+        updateState(savedState);
+        return savedState;
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('Erro ao restaurar estado salvo: $e');
+      return null;
+    }
+  }
+
+  /// Limpa estado persistido.
+  Future<void> clearPersistedState() async {
+    await PlacementPersistence.clearPlacementState();
+  }
+
+  /// Verifica se há estado salvo válido.
+  Future<bool> hasValidSavedState() async {
+    return await PlacementPersistence.hasValidPlacementState();
+  }
+
+  /// Se está tentando reconectar.
+  bool get isReconnecting => _isReconnecting;
+
+  /// Força uma tentativa manual de reconexão.
+  Future<bool> attemptManualReconnection() async {
+    if (_isReconnecting) {
+      return false; // Já está tentando reconectar
+    }
+
+    debugPrint('Iniciando reconexão manual');
+
+    _isReconnecting = true;
+    _clearError();
+    notifyListeners();
+
+    try {
+      // TODO: Obter URL do servidor de configuração
+      const serverUrl = 'ws://localhost:8083'; // Placeholder
+
+      // TODO: Obter nome do usuário de UserPreferences
+      // final userName = await UserPreferences.getUserName();
+
+      final success = await _socketService.reconnectDuringPlacement(
+        serverUrl,
+        // nomeUsuario: userName,
+      );
+
+      if (success) {
+        _handleReconnectionSuccess();
+        return true;
+      } else {
+        _isReconnecting = false;
+
+        final error = PlacementError(
+          type: PlacementErrorType.networkError,
+          userMessage: 'Falha na reconexão. Verifique sua conexão.',
+        );
+        _handleError(error);
+
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _isReconnecting = false;
+
+      final error = PlacementError.networkError(
+        operation: 'manual reconnection',
+        originalError: e,
+      );
+      _handleError(error);
+
+      notifyListeners();
+      return false;
+    }
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
     _messageSubscription?.cancel();
+    _connectionWatchdog?.cancel();
+    _opponentReconnectionTimer?.cancel();
     super.dispose();
   }
 }

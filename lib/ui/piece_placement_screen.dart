@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../modelos_jogo.dart';
 import '../placement_controller.dart';
+import '../placement_error_handler.dart';
+
 import '../piece_inventory.dart';
 import '../providers.dart';
 import 'piece_inventory_widget.dart';
@@ -60,6 +62,11 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
     _controller = PlacementController(
       // Placeholder - será substituído pela integração real
       ref.read(gameSocketProvider),
+      retryConfig: const RetryConfig(
+        maxAttempts: 3,
+        initialDelay: Duration(seconds: 1),
+        backoffMultiplier: 2.0,
+      ),
     );
 
     // Configura listener para mudanças de estado
@@ -109,6 +116,17 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
   void _onPlacementStateChanged() {
     final state = _controller.currentState;
+    final error = _controller.lastError;
+
+    // Manipula erros se houver
+    if (error != null && mounted) {
+      PlacementErrorHandler.handlePlacementError(
+        context,
+        error,
+        onRetry: _handleRetryOperation,
+      );
+    }
+
     if (state == null) return;
 
     // Verifica se o jogo deve iniciar
@@ -118,6 +136,27 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
     // Atualiza o estado local se necessário
     setState(() {});
+  }
+
+  /// Manipula retry de operações falhadas.
+  void _handleRetryOperation() {
+    // Implementa retry baseado no último erro
+    final error = _controller.lastError;
+    if (error == null) return;
+
+    switch (error.type) {
+      case PlacementErrorType.networkError:
+      case PlacementErrorType.timeout:
+        // Retry da confirmação se foi isso que falhou
+        _controller.retryOperation(() async {
+          final result = await _controller.confirmPlacement();
+          return result;
+        });
+        break;
+      default:
+        // Para outros erros, apenas limpa o erro
+        _controller.clearError();
+    }
   }
 
   @override
@@ -399,6 +438,17 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
   void _handlePositionTap(PosicaoTabuleiro position) {
     if (!_isInteractionEnabled() || _selectedPieceType == null) return;
 
+    // Valida a operação antes de executar
+    final validation = _controller.validatePiecePlacement(
+      position: position,
+      pieceType: _selectedPieceType!,
+    );
+
+    if (validation.isFailure) {
+      PlacementErrorHandler.handlePlacementError(context, validation.error!);
+      return;
+    }
+
     _placePieceAtPosition(_selectedPieceType!, position);
   }
 
@@ -427,7 +477,25 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
   /// Manipula o pressionamento do botão "PRONTO".
   void _handleReadyPressed() {
-    if (!_inventory.isEmpty) return;
+    if (!_inventory.isEmpty) {
+      final missingTypes = _inventory.availablePieces.entries
+          .where((entry) => entry.value > 0)
+          .map((entry) {
+            // Converte string para Patente
+            return Patente.values.firstWhere(
+              (p) => p.name == entry.key,
+              orElse: () => Patente.soldado, // fallback
+            );
+          })
+          .toList();
+
+      final error = PlacementError.incompletePlacement(
+        remainingPieces: _inventory.totalPiecesRemaining,
+        missingTypes: missingTypes,
+      );
+      PlacementErrorHandler.handlePlacementError(context, error);
+      return;
+    }
 
     _controller.confirmPlacement();
   }
