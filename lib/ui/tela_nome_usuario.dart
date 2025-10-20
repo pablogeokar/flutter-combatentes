@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/user_preferences.dart';
 import 'tela_jogo.dart';
 import 'military_theme_widgets.dart';
-import 'tela_configuracao_servidor.dart';
+import 'server_config_dialog.dart';
 
 /// Tela para o usuário inserir seu nome
 class TelaNomeUsuario extends StatefulWidget {
@@ -64,8 +64,9 @@ class _TelaNomeUsuarioState extends State<TelaNomeUsuario> {
   }
 
   Future<void> _showServerConfig() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const TelaConfiguracaoServidor()),
+    await showDialog(
+      context: context,
+      builder: (context) => const ServerConfigDialog(),
     );
   }
 

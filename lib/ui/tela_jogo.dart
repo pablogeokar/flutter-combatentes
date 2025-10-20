@@ -9,7 +9,7 @@ import './tela_nome_usuario.dart';
 import './explosion_widget.dart';
 import './audio_settings_dialog.dart';
 import './victory_defeat_screens.dart';
-import './tela_configuracao_servidor.dart';
+import './server_config_dialog.dart';
 
 /// A tela principal do jogo, agora como um ConsumerStatefulWidget que reage às mudanças de estado do Riverpod.
 class TelaJogo extends ConsumerStatefulWidget {
@@ -796,10 +796,11 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     );
   }
 
-  /// Mostra tela de configuração do servidor
+  /// Mostra dialog de configuração do servidor
   void _showServerConfigDialog(BuildContext context, WidgetRef ref) async {
-    final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (context) => const TelaConfiguracaoServidor()),
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => const ServerConfigDialog(),
     );
 
     // Se o usuário salvou uma nova configuração, reconecta
