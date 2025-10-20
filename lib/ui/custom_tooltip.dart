@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 
 /// Tooltip customizado que funciona melhor em widgets complexos
 class CustomTooltip extends StatefulWidget {
@@ -23,26 +24,34 @@ class CustomTooltip extends StatefulWidget {
 class _CustomTooltipState extends State<CustomTooltip> {
   OverlayEntry? _overlayEntry;
   bool _isHovering = false;
+  Timer? _showTimer;
+  Timer? _hideTimer;
 
   @override
   Widget build(BuildContext context) {
-    final bool isDesktop =
-        !kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.windows ||
-            defaultTargetPlatform == TargetPlatform.macOS ||
-            defaultTargetPlatform == TargetPlatform.linux);
+    // Detecta se é desktop de forma mais robusta
+    final bool isDesktop = _isDesktopPlatform();
 
     if (!isDesktop) {
-      // Para mobile, usa o tooltip nativo
+      // Para mobile, usa o tooltip nativo do Flutter
       return Tooltip(
         message: widget.message,
         waitDuration: widget.waitDuration,
         showDuration: widget.showDuration,
+        decoration: BoxDecoration(
+          color: Colors.black87,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        textStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
         child: widget.child,
       );
     }
 
-    // Para desktop, usa implementação customizada
+    // Para desktop, usa implementação customizada com MouseRegion
     return MouseRegion(
       onEnter: (_) => _onHover(true),
       onExit: (_) => _onHover(false),
@@ -50,19 +59,39 @@ class _CustomTooltipState extends State<CustomTooltip> {
     );
   }
 
+  bool _isDesktopPlatform() {
+    if (kIsWeb) return true; // Web também pode usar hover
+
+    return defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux;
+  }
+
   void _onHover(bool isHovering) {
     if (_isHovering == isHovering) return;
 
     _isHovering = isHovering;
 
+    // Cancela timers existentes
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
+
     if (isHovering) {
-      _showTooltip();
+      // Aguarda um pouco antes de mostrar
+      _showTimer = Timer(widget.waitDuration, () {
+        if (_isHovering && mounted) {
+          _showTooltip();
+        }
+      });
     } else {
+      // Esconde imediatamente quando sai do hover
       _hideTooltip();
     }
   }
 
   void _showTooltip() {
+    if (!mounted) return;
+
     _hideTooltip(); // Remove qualquer tooltip existente
 
     final overlay = Overlay.of(context);
@@ -71,36 +100,55 @@ class _CustomTooltipState extends State<CustomTooltip> {
 
     final offset = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
+    final screenSize = MediaQuery.of(context).size;
 
-    // Calcula posição para centralizar o tooltip
-    final tooltipWidth =
-        widget.message.length * 8.0 + 24; // Estimativa da largura
-    final screenWidth = MediaQuery.of(context).size.width;
-    final left = (offset.dx + size.width / 2 - tooltipWidth / 2).clamp(
-      8.0,
-      screenWidth - tooltipWidth - 8,
+    // Calcula dimensões do tooltip baseado no texto
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: widget.message,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      ),
+      textDirection: TextDirection.ltr,
     );
+    textPainter.layout();
+
+    final tooltipWidth = textPainter.width + 24; // padding horizontal
+    final tooltipHeight = textPainter.height + 16; // padding vertical
+
+    // Posiciona o tooltip
+    double left = offset.dx + (size.width / 2) - (tooltipWidth / 2);
+    double top = offset.dy - tooltipHeight - 8; // 8px de margem
+
+    // Ajusta se sair da tela horizontalmente
+    if (left < 8) {
+      left = 8;
+    } else if (left + tooltipWidth > screenSize.width - 8) {
+      left = screenSize.width - tooltipWidth - 8;
+    }
+
+    // Ajusta se sair da tela verticalmente (mostra embaixo)
+    if (top < 8) {
+      top = offset.dy + size.height + 8;
+    }
 
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         left: left,
-        top: offset.dy - 50, // Posiciona acima da peça
+        top: top,
         child: Material(
           color: Colors.transparent,
           child: Container(
+            constraints: BoxConstraints(maxWidth: screenSize.width * 0.8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.95),
+              color: Colors.black87,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2),
-                width: 1,
-              ),
-              boxShadow: [
+              border: Border.all(color: Colors.white24, width: 1),
+              boxShadow: const [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.4),
+                  color: Colors.black26,
                   blurRadius: 8,
-                  offset: const Offset(0, 4),
+                  offset: Offset(0, 4),
                 ),
               ],
             ),
@@ -120,15 +168,25 @@ class _CustomTooltipState extends State<CustomTooltip> {
     );
 
     overlay.insert(_overlayEntry!);
+
+    // Auto-hide após o tempo especificado
+    _hideTimer = Timer(widget.showDuration, () {
+      if (mounted) {
+        _hideTooltip();
+      }
+    });
   }
 
   void _hideTooltip() {
     _overlayEntry?.remove();
     _overlayEntry = null;
+    _hideTimer?.cancel();
   }
 
   @override
   void dispose() {
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
     _hideTooltip();
     super.dispose();
   }

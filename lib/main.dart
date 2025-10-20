@@ -81,7 +81,7 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
         child: Container(
           // Overlay escuro para melhor legibilidade
-          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.4)),
+          decoration: BoxDecoration(color: Colors.black.withOpacity(0.4)),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -90,10 +90,10 @@ class _SplashScreenState extends State<SplashScreen> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.3),
+                    color: Colors.black.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
+                      color: Colors.white.withOpacity(0.3),
                       width: 2,
                     ),
                   ),
@@ -122,7 +122,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
+                    color: Colors.black.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
@@ -142,7 +142,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.3),
+                    color: Colors.black.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(50),
                   ),
                   child: const CircularProgressIndicator(

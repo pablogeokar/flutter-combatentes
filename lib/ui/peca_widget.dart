@@ -58,7 +58,7 @@ class PecaJogoWidget extends StatelessWidget {
         ), // Mínimo padding - máximo espaço
         child: ColorFiltered(
           colorFilter: ColorFilter.mode(
-            Colors.white.withValues(alpha: 0.95),
+            Colors.white.withOpacity(0.95),
             BlendMode.modulate,
           ),
           child: Image.asset(
@@ -68,7 +68,7 @@ class PecaJogoWidget extends StatelessWidget {
               // Fallback minimalista - apenas ícone
               return Icon(
                 Icons.military_tech,
-                color: Colors.white.withValues(alpha: 0.9),
+                color: Colors.white.withOpacity(0.9),
                 size: cellSize * 0.7,
               );
             },
@@ -81,7 +81,7 @@ class PecaJogoWidget extends StatelessWidget {
         padding: EdgeInsets.all(cellSize * 0.05),
         child: Icon(
           Icons.military_tech,
-          color: Colors.white.withValues(alpha: 0.9),
+          color: Colors.white.withOpacity(0.9),
           size: cellSize * 0.7,
         ),
       );
@@ -118,9 +118,9 @@ class PecaJogoWidget extends StatelessWidget {
           margin: EdgeInsets.all(margin),
           decoration: BoxDecoration(
             color: ehMovimentoValido
-                ? Colors.red.withValues(alpha: 0.3)
+                ? Colors.red.withOpacity(0.3)
                 : estaSelecionada
-                ? Colors.yellow.withValues(alpha: 0.2)
+                ? Colors.yellow.withOpacity(0.2)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(borderRadius),
             border: estaSelecionada
@@ -131,7 +131,7 @@ class PecaJogoWidget extends StatelessWidget {
             boxShadow: estaSelecionada
                 ? [
                     BoxShadow(
-                      color: Colors.yellow.withValues(alpha: 0.5),
+                      color: Colors.yellow.withOpacity(0.5),
                       spreadRadius: 2,
                       blurRadius: 4,
                       offset: const Offset(0, 0),
@@ -140,7 +140,7 @@ class PecaJogoWidget extends StatelessWidget {
                 : ehMovimentoValido
                 ? [
                     BoxShadow(
-                      color: Colors.red.withValues(alpha: 0.4),
+                      color: Colors.red.withOpacity(0.4),
                       spreadRadius: 1,
                       blurRadius: 3,
                       offset: const Offset(0, 1),
@@ -200,7 +200,7 @@ class PecaJogoWidget extends StatelessWidget {
                 peca.patente.imagePath,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
-                  return Icon(
+                  return const Icon(
                     Icons.military_tech,
                     color: Colors.white,
                     size: 20,

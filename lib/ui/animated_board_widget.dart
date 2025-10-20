@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import '../modelos_jogo.dart';
 import '../providers.dart';
+import 'peca_widget.dart';
 
 /// Widget de tabuleiro com animações integradas
 class AnimatedBoardWidget extends StatefulWidget {
@@ -238,12 +239,14 @@ class _AnimatedBoardWidgetState extends State<AnimatedBoardWidget>
           top: top,
           width: cellSize,
           height: cellSize,
-          child: GestureDetector(
-            onTap: () => widget.onPecaTap(peca.id),
-            child: _buildPieceWidget(
-              peca: peca,
-              estaSelecionada: widget.idPecaSelecionada == peca.id,
-            ),
+          child: PecaJogoWidget(
+            peca: peca,
+            estaSelecionada: widget.idPecaSelecionada == peca.id,
+            ehDoJogadorAtual: _isPieceFromLocalPlayer(peca),
+            ehVezDoJogadorLocal: _isLocalPlayerTurn(),
+            ehMovimentoValido: false, // Não é um movimento válido, é uma peça
+            onPecaTap: widget.onPecaTap,
+            cellSize: cellSize,
           ),
         ),
       );
@@ -278,7 +281,7 @@ class _AnimatedBoardWidgetState extends State<AnimatedBoardWidget>
           decoration: BoxDecoration(
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: Colors.black.withOpacity(0.4),
                 blurRadius: 12 + (_moveAnimation!.value * 8), // Sombra dinâmica
                 spreadRadius: 3 + (_moveAnimation!.value * 2),
                 offset: Offset(
@@ -290,9 +293,14 @@ class _AnimatedBoardWidgetState extends State<AnimatedBoardWidget>
           ),
           child: Transform.rotate(
             angle: (_moveAnimation!.value - 0.5) * 0.05, // Rotação mais sutil
-            child: _buildPieceWidget(
+            child: PecaJogoWidget(
               peca: _movingPiece!,
               estaSelecionada: false,
+              ehDoJogadorAtual: _isPieceFromLocalPlayer(_movingPiece!),
+              ehVezDoJogadorLocal: _isLocalPlayerTurn(),
+              ehMovimentoValido: false,
+              onPecaTap: widget.onPecaTap,
+              cellSize: cellSize,
             ),
           ),
         ),
@@ -324,9 +332,9 @@ class _AnimatedBoardWidgetState extends State<AnimatedBoardWidget>
           decoration: BoxDecoration(
             gradient: RadialGradient(
               colors: [
-                Colors.brown.withValues(alpha: opacity * 0.6),
-                Colors.brown.withValues(alpha: opacity * 0.2),
-                Colors.brown.withValues(alpha: 0.0),
+                Colors.brown.withOpacity(opacity * 0.6),
+                Colors.brown.withOpacity(opacity * 0.2),
+                Colors.brown.withOpacity(0.0),
               ],
             ),
             shape: BoxShape.circle,
@@ -351,7 +359,7 @@ class _AnimatedBoardWidgetState extends State<AnimatedBoardWidget>
           child: Container(
             margin: EdgeInsets.all(cellSize * 0.2),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.3),
+              color: Colors.green.withOpacity(0.3),
               borderRadius: BorderRadius.circular(cellSize * 0.1),
               border: Border.all(color: Colors.green, width: 2),
             ),
@@ -364,68 +372,6 @@ class _AnimatedBoardWidgetState extends State<AnimatedBoardWidget>
         ),
       );
     }).toList();
-  }
-
-  Widget _buildPieceWidget({
-    required PecaJogo peca,
-    required bool estaSelecionada,
-  }) {
-    // Determina se deve mostrar informações da peça
-    final bool mostrarInfo = _shouldShowPieceInfo(peca);
-
-    return Container(
-      margin: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: peca.equipe == Equipe.preta
-            ? Colors.grey[800]
-            : Colors.green[700],
-        borderRadius: BorderRadius.circular(8),
-        border: estaSelecionada
-            ? Border.all(color: Colors.yellow, width: 3)
-            : Border.all(color: Colors.black26, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: _buildPieceImage(peca, mostrarInfo),
-      ),
-    );
-  }
-
-  Widget _buildPieceImage(PecaJogo peca, bool mostrarInfo) {
-    final bool ehPecaDoJogadorLocal = _isPieceFromLocalPlayer(peca);
-
-    // Só mostra a imagem real para peças do jogador local
-    // Peças do adversário sempre mostram silhueta (não revelação permanente)
-    if (ehPecaDoJogadorLocal) {
-      return ColorFiltered(
-        colorFilter: ColorFilter.mode(
-          Colors.white.withValues(alpha: 0.9),
-          BlendMode.modulate,
-        ),
-        child: Image.asset(
-          peca.patente.imagePath,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return Icon(Icons.error, color: Colors.red, size: 20);
-          },
-        ),
-      );
-    } else {
-      // Para peças do adversário, sempre mostra silhueta
-      return Icon(
-        Icons.help_outline,
-        color: Colors.white.withValues(alpha: 0.7),
-        size: 24,
-      );
-    }
   }
 
   bool _isPieceFromLocalPlayer(PecaJogo peca) {
@@ -446,11 +392,22 @@ class _AnimatedBoardWidgetState extends State<AnimatedBoardWidget>
     return false;
   }
 
-  bool _shouldShowPieceInfo(PecaJogo peca) {
+  bool _isLocalPlayerTurn() {
     if (widget.nomeUsuarioLocal == null) return false;
 
-    // Só mostra info para peças do jogador local
-    return _isPieceFromLocalPlayer(peca);
+    final jogadorLocal = widget.estadoJogo.jogadores.where((jogador) {
+      final nomeJogador = jogador.nome.trim().toLowerCase();
+      final nomeLocal = widget.nomeUsuarioLocal!.trim().toLowerCase();
+      return nomeJogador == nomeLocal ||
+          nomeJogador.contains(nomeLocal) ||
+          nomeLocal.contains(nomeJogador);
+    }).firstOrNull;
+
+    if (jogadorLocal != null) {
+      return widget.estadoJogo.idJogadorDaVez == jogadorLocal.id;
+    }
+
+    return false;
   }
 }
 
@@ -463,7 +420,7 @@ class BoardGridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     // Linhas do grid mais sutis sobre a imagem de fundo
     final gridPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.2)
+      ..color = Colors.black.withOpacity(0.2)
       ..strokeWidth = 0.5;
 
     // Desenha linhas verticais
@@ -480,11 +437,11 @@ class BoardGridPainter extends CustomPainter {
 
     // Desenha lagos com transparência
     final lakePaint = Paint()
-      ..color = Colors.blue.withValues(alpha: 0.3)
+      ..color = Colors.blue.withOpacity(0.3)
       ..style = PaintingStyle.fill;
 
     final lakeStrokePaint = Paint()
-      ..color = Colors.blue.withValues(alpha: 0.6)
+      ..color = Colors.blue.withOpacity(0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
