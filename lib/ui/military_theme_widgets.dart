@@ -29,6 +29,60 @@ class MilitaryThemeWidgets {
     );
   }
 
+  /// AppBar militar estilizado com fundo consistente
+  static PreferredSizeWidget militaryAppBar({
+    required String title,
+    List<Widget>? actions,
+    Widget? leading,
+    bool automaticallyImplyLeading = true,
+    double elevation = 4,
+  }) {
+    return AppBar(
+      title: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/bg.png'),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: Container(
+          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.7)),
+        ),
+      ),
+      foregroundColor: Colors.white,
+      elevation: elevation,
+      shadowColor: Colors.black.withValues(alpha: 0.3),
+      actions: actions?.map((action) {
+        return Container(
+          margin: const EdgeInsets.only(right: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: action,
+        );
+      }).toList(),
+      leading: leading,
+      automaticallyImplyLeading: automaticallyImplyLeading,
+    );
+  }
+
   /// Card militar com bordas e sombras estilizadas
   static Widget militaryCard({
     required Widget child,

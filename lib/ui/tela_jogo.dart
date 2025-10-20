@@ -141,11 +141,18 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
       appBar: AppBar(
         title: Row(
           children: [
-            // Logo de texto do jogo
-            Image.asset(
-              'assets/images/combatentes.png',
-              height: 36,
-              fit: BoxFit.contain,
+            // Logo de texto do jogo com fundo sutil
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Image.asset(
+                'assets/images/combatentes.png',
+                height: 28,
+                fit: BoxFit.contain,
+              ),
             ),
             if (estadoJogo != null) ...[
               const SizedBox(width: 16),
@@ -162,69 +169,79 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
           ),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF2E7D32).withValues(alpha: 0.8),
+              color: Colors.black.withValues(alpha: 0.7),
             ),
           ),
         ),
         foregroundColor: Colors.white,
+        elevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.3),
         actions: [
           // Menu de opções do usuário
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.person),
-            onSelected: (value) => _handleMenuAction(context, value, ref),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'change_name',
-                child: Row(
-                  children: [
-                    const Icon(Icons.edit, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Alterar Nome'),
-                  ],
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: PopupMenuButton<String>(
+              icon: const Icon(Icons.person, size: 20),
+              onSelected: (value) => _handleMenuAction(context, value, ref),
+              padding: const EdgeInsets.all(8),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'change_name',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.edit, size: 20),
+                      const SizedBox(width: 8),
+                      Text('Alterar Nome'),
+                    ],
+                  ),
                 ),
-              ),
-              PopupMenuItem(
-                value: 'audio_settings',
-                child: Row(
-                  children: [
-                    const Icon(Icons.volume_up, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Configurações de Áudio'),
-                  ],
+                PopupMenuItem(
+                  value: 'audio_settings',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.volume_up, size: 20),
+                      const SizedBox(width: 8),
+                      Text('Configurações de Áudio'),
+                    ],
+                  ),
                 ),
-              ),
-              PopupMenuItem(
-                value: 'server_config',
-                child: Row(
-                  children: [
-                    const Icon(Icons.dns, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Configurar Servidor'),
-                  ],
+                PopupMenuItem(
+                  value: 'server_config',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.dns, size: 20),
+                      const SizedBox(width: 8),
+                      Text('Configurar Servidor'),
+                    ],
+                  ),
                 ),
-              ),
-              PopupMenuItem(
-                value: 'clear_name',
-                child: Row(
-                  children: [
-                    const Icon(Icons.delete, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Limpar Nome'),
-                  ],
+                PopupMenuItem(
+                  value: 'clear_name',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.delete, size: 20),
+                      const SizedBox(width: 8),
+                      Text('Limpar Nome'),
+                    ],
+                  ),
                 ),
-              ),
 
-              PopupMenuItem(
-                value: 'disconnect',
-                child: Row(
-                  children: [
-                    const Icon(Icons.exit_to_app, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Desconectar'),
-                  ],
+                PopupMenuItem(
+                  value: 'disconnect',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.exit_to_app, size: 20),
+                      const SizedBox(width: 8),
+                      Text('Desconectar'),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -940,8 +957,12 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.3),
+        color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
