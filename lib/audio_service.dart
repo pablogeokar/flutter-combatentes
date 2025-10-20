@@ -136,6 +136,22 @@ class AudioService {
     }
   }
 
+  Future<void> playDisarmSound() async {
+    if (!_isSoundEnabled) return;
+
+    try {
+      await _effectsPlayer.play(AssetSource('sounds/desarme.wav'));
+
+      if (kDebugMode) {
+        print('Som de desarme tocado');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Erro ao tocar som de desarme: $e');
+      }
+    }
+  }
+
   Future<void> playCombatSound() async {
     if (!_isSoundEnabled) return;
 

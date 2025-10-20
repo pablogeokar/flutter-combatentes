@@ -120,6 +120,18 @@ class _AudioSettingsDialogState extends State<AudioSettingsDialog> {
                   foregroundColor: Colors.white,
                 ),
               ),
+
+              ElevatedButton.icon(
+                onPressed: _soundEnabled
+                    ? () => _audioService.playDisarmSound()
+                    : null,
+                icon: const Icon(Icons.build, size: 16),
+                label: const Text('Desarme'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+              ),
             ],
           ),
         ],

@@ -7,6 +7,7 @@ import '../audio_service.dart';
 import './animated_board_widget.dart';
 import './tela_nome_usuario.dart';
 import './explosion_widget.dart';
+import './disarm_widget.dart';
 import './audio_settings_dialog.dart';
 import './victory_defeat_screens.dart';
 import './server_config_dialog.dart';
@@ -21,6 +22,7 @@ class TelaJogo extends ConsumerStatefulWidget {
 
 class _TelaJogoState extends ConsumerState<TelaJogo> {
   final List<ExplosionOverlay> _explosions = [];
+  final List<DisarmOverlay> _disarms = [];
   final AudioService _audioService = AudioService();
 
   @override
@@ -75,15 +77,24 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
           '📺 CHAMANDO DIÁLOGO DE COMBATE: ${next.ultimoCombate!.atacante.patente.nome} vs ${next.ultimoCombate!.defensor.patente.nome}',
         );
 
-        // Verifica se precisa mostrar explosão ANTES do diálogo
+        // Verifica se é combate contra mina terrestre
         if (next.ultimoCombate!.defensor.patente == Patente.minaTerrestre) {
-          debugPrint('💥 MINA TERRESTRE DETECTADA - Mostrando explosão');
-          _showExplosionEffect(next.ultimoCombate!.posicaoCombate);
+          // Verifica se é Cabo atacando (desarme) ou outra peça (explosão)
+          if (next.ultimoCombate!.atacante.patente == Patente.cabo) {
+            debugPrint('🔧 CABO DESARMANDO MINA - Mostrando desarme');
+            _showDisarmEffect(next.ultimoCombate!.posicaoCombate);
 
-          // Toca som de explosão
-          _audioService.playExplosionSound();
+            // Toca som de desarme
+            _audioService.playDisarmSound();
+          } else {
+            debugPrint('💥 MINA TERRESTRE DETECTADA - Mostrando explosão');
+            _showExplosionEffect(next.ultimoCombate!.posicaoCombate);
 
-          // Mostra o diálogo após um pequeno delay para a explosão ser visível
+            // Toca som de explosão
+            _audioService.playExplosionSound();
+          }
+
+          // Mostra o diálogo após um pequeno delay para a animação ser visível
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
               _showCombatResultDialog(context, next.ultimoCombate!, ref);
@@ -315,6 +326,8 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
             ),
           // Explosões
           ..._explosions,
+          // Desarmes
+          ..._disarms,
         ],
       ),
     );
@@ -374,6 +387,63 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
       });
     } else {
       debugPrint('❌ Widget não montado, explosão não adicionada');
+    }
+  }
+
+  /// Mostra o efeito de desarme na posição especificada
+  void _showDisarmEffect(PosicaoTabuleiro posicao) {
+    debugPrint(
+      '🔧 _showDisarmEffect CHAMADA! Posição: (${posicao.linha}, ${posicao.coluna})',
+    );
+
+    // Calcula a posição do desarme baseada na posição da peça no tabuleiro
+    final screenSize = MediaQuery.of(context).size;
+
+    // Calcula o tamanho do tabuleiro (AspectRatio 1:1 centralizado)
+    final availableHeight =
+        screenSize.height - kToolbarHeight - MediaQuery.of(context).padding.top;
+    final boardSize = screenSize.width < availableHeight
+        ? screenSize.width * 0.95
+        : availableHeight * 0.95;
+    final cellSize = boardSize / 10;
+
+    // Posição do centro da tela (considerando o AppBar)
+    final centerX = screenSize.width / 2;
+    final centerY =
+        kToolbarHeight +
+        MediaQuery.of(context).padding.top +
+        availableHeight / 2;
+
+    // Offset da posição da peça no tabuleiro (0,0 é canto superior esquerdo)
+    final offsetX = (posicao.coluna - 4.5) * cellSize;
+    final offsetY = (posicao.linha - 4.5) * cellSize;
+
+    final disarmX =
+        centerX + offsetX - 60; // 60 é metade do tamanho da animação
+    final disarmY = centerY + offsetY - 60;
+
+    debugPrint('📊 Desarme calculado em: ($disarmX, $disarmY)');
+
+    late DisarmOverlay disarm;
+    disarm = DisarmOverlay(
+      left: disarmX,
+      top: disarmY,
+      onComplete: () {
+        if (mounted) {
+          setState(() {
+            _disarms.removeWhere((d) => d == disarm);
+          });
+        }
+      },
+    );
+
+    if (mounted) {
+      setState(() {
+        _disarms.add(disarm);
+        debugPrint('✅ Desarme adicionado! Total: ${_disarms.length}');
+      });
+    } else {
+      debugPrint('❌ Widget não montado, desarme não adicionado');
     }
   }
 

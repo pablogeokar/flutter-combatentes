@@ -131,6 +131,7 @@ assets/sounds/
 ├── campainha.wav          # Turn notification sound
 ├── tiro.wav              # Combat sound effect
 ├── explosao.wav          # Mine explosion effect
+├── desarme.wav           # Mine disarm effect (Engineer vs Mine)
 ├── comemoracao.mp3       # Victory celebration
 └── derrota_fim.wav       # Defeat sound
 ```

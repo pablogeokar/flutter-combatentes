@@ -177,6 +177,7 @@ This document outlines the most important features and bug fixes that are essent
 - **Turn Notifications**: campainha.wav plays when it's the local player's turn
 - **Combat Audio**: tiro.wav for regular combat encounters
 - **Explosion Effects**: explosao.wav for landmine encounters with visual synchronization
+- **Disarm Effects**: desarme.wav for Engineer successfully disarming landmines with custom animation
 - **Victory/Defeat Audio**: comemoracao.mp3 for wins, derrota_fim.wav for losses
 - **User Controls**: Complete audio settings dialog with music/sound toggles and test buttons
 - **Smart Detection**: Audio triggers based on game state changes and turn detection
