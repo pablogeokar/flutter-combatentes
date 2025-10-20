@@ -33,6 +33,58 @@ export class GameSessionManager {
     this.setupWebSocketHandlers(ws, clientId);
   }
 
+  /**
+   * Handles reconnection attempt by a player
+   */
+  public handleReconnection(ws: WebSocket, playerId: string): boolean {
+    console.log(`🔄 Tentativa de reconexão do jogador ${playerId}`);
+
+    // Try to reconnect during placement phase
+    const reconnected = this.messageHandler.handlePlayerReconnection(
+      playerId,
+      ws
+    );
+
+    if (reconnected) {
+      // Setup handlers for the reconnected player
+      this.setupWebSocketHandlers(ws, playerId);
+      console.log(`✅ Jogador ${playerId} reconectado com sucesso`);
+      return true;
+    }
+
+    // If not in placement, check if player is in an active game
+    const session = this.findGameByPlayerId(playerId);
+    if (session) {
+      // Update WebSocket for the player
+      const player = session.jogadores.find((j) => j.id === playerId);
+      if (player) {
+        player.ws = ws;
+        this.setupWebSocketHandlers(ws, playerId);
+
+        // Send current game state
+        this.broadcastGameState(session);
+
+        // Notify opponent of reconnection
+        const opponent = session.jogadores.find((j) => j.id !== playerId);
+        if (opponent) {
+          this.sendMessage(
+            opponent.ws,
+            "mensagemServidor",
+            "O oponente reconectou."
+          );
+        }
+
+        console.log(`✅ Jogador ${playerId} reconectado ao jogo em andamento`);
+        return true;
+      }
+    }
+
+    console.log(
+      `❌ Falha na reconexão do jogador ${playerId} - sessão não encontrada`
+    );
+    return false;
+  }
+
   private createNewGame(clientId: string, ws: WebSocket): void {
     const player1 = this.pendingClient!;
     const player2 = {
@@ -100,23 +152,39 @@ export class GameSessionManager {
   }
 
   private handleDisconnection(clientId: string): void {
-    console.log("Cliente desconectado.");
+    console.log(`🔌 Cliente ${clientId} desconectado`);
 
     if (this.pendingClient && this.pendingClient.id === clientId) {
       this.pendingClient = null;
+      return;
     }
 
     const session = this.findGameByPlayerId(clientId);
     if (session) {
-      const otherPlayer = session.jogadores.find((j) => j.id !== clientId);
-      if (otherPlayer) {
-        this.sendMessage(
-          otherPlayer.ws,
-          "mensagemServidor",
-          "O oponente desconectou."
+      // Check if this is during placement phase
+      const placementState = this.messageHandler.getPlacementState(
+        session.id,
+        clientId
+      );
+
+      if (placementState) {
+        // Handle disconnection during placement
+        console.log(
+          `🎯 Desconexão durante posicionamento detectada para jogador ${clientId}`
         );
+        this.messageHandler.handlePlayerDisconnection(clientId);
+      } else {
+        // Handle disconnection during regular game
+        const otherPlayer = session.jogadores.find((j) => j.id !== clientId);
+        if (otherPlayer) {
+          this.sendMessage(
+            otherPlayer.ws,
+            "mensagemServidor",
+            "O oponente desconectou."
+          );
+        }
+        this.activeGames.delete(session.id);
       }
-      this.activeGames.delete(session.id);
     }
   }
 

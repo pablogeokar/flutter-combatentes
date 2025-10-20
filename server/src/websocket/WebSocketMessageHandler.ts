@@ -17,11 +17,18 @@ export class WebSocketMessageHandler {
   private gameController: GameController;
   private activeGames: Map<string, GameSession>;
   private placementStates: Map<string, Map<string, PlacementGameState>>; // gameId -> playerId -> state
+  private disconnectedPlayers: Map<
+    string,
+    { gameId: string; timestamp: number }
+  >; // playerId -> disconnect info
+  private placementTimeouts: Map<string, NodeJS.Timeout>; // gameId -> timeout
 
   constructor(activeGames: Map<string, GameSession>) {
     this.gameController = new GameController();
     this.activeGames = activeGames;
     this.placementStates = new Map();
+    this.disconnectedPlayers = new Map();
+    this.placementTimeouts = new Map();
   }
 
   public handleMessage(message: string, clientId: string, ws: WebSocket): void {
@@ -661,5 +668,275 @@ export class WebSocketMessageHandler {
     }
 
     return Object.fromEntries(gameStates.entries());
+  }
+
+  // ===== DISCONNECTION HANDLING METHODS =====
+
+  /**
+   * Handles player disconnection during placement phase
+   */
+  public handlePlayerDisconnection(playerId: string): void {
+    console.log(`🔌 Player ${playerId} disconnected during placement`);
+
+    // Find the game this player was in
+    const gameId = this.findGameIdByPlayerId(playerId);
+    if (!gameId) {
+      console.log(`No active game found for disconnected player ${playerId}`);
+      return;
+    }
+
+    // Record disconnection
+    this.disconnectedPlayers.set(playerId, {
+      gameId,
+      timestamp: Date.now(),
+    });
+
+    // Notify opponent about disconnection
+    this.notifyOpponentOfDisconnection(gameId, playerId);
+
+    // Set timeout for abandoned placement (5 minutes)
+    const timeoutId = setTimeout(() => {
+      this.handleAbandonedPlacement(gameId, playerId);
+    }, 5 * 60 * 1000); // 5 minutes
+
+    this.placementTimeouts.set(`${gameId}_${playerId}`, timeoutId);
+
+    console.log(
+      `⏰ Placement abandonment timeout set for player ${playerId} in game ${gameId}`
+    );
+  }
+
+  /**
+   * Handles player reconnection during placement phase
+   */
+  public handlePlayerReconnection(playerId: string, ws: WebSocket): boolean {
+    const disconnectionInfo = this.disconnectedPlayers.get(playerId);
+    if (!disconnectionInfo) {
+      return false; // Player wasn't disconnected during placement
+    }
+
+    const { gameId } = disconnectionInfo;
+    console.log(
+      `🔄 Player ${playerId} reconnecting to placement in game ${gameId}`
+    );
+
+    // Clear disconnection record
+    this.disconnectedPlayers.delete(playerId);
+
+    // Clear abandonment timeout
+    const timeoutKey = `${gameId}_${playerId}`;
+    const timeoutId = this.placementTimeouts.get(timeoutKey);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      this.placementTimeouts.delete(timeoutKey);
+    }
+
+    // Update player's WebSocket in the game session
+    const session = this.activeGames.get(gameId);
+    if (session) {
+      const player = session.jogadores.find((j) => j.id === playerId);
+      if (player) {
+        player.ws = ws;
+      }
+    }
+
+    // Restore placement state
+    const gameStates = this.placementStates.get(gameId);
+    if (gameStates) {
+      const playerState = gameStates.get(playerId);
+      if (playerState) {
+        // Send current placement state to reconnected player
+        this.sendPlacementStatus(ws, playerState);
+
+        // Notify opponent of reconnection
+        this.notifyOpponentOfReconnection(gameId, playerId);
+
+        console.log(
+          `✅ Player ${playerId} successfully reconnected to placement`
+        );
+        return true;
+      }
+    }
+
+    console.log(`❌ Failed to restore placement state for player ${playerId}`);
+    return false;
+  }
+
+  /**
+   * Handles abandoned placement (player didn't reconnect in time)
+   */
+  private handleAbandonedPlacement(gameId: string, playerId: string): void {
+    console.log(
+      `⏰ Placement abandoned by player ${playerId} in game ${gameId}`
+    );
+
+    // Clean up disconnection record
+    this.disconnectedPlayers.delete(playerId);
+
+    // Clean up timeout
+    const timeoutKey = `${gameId}_${playerId}`;
+    this.placementTimeouts.delete(timeoutKey);
+
+    // Notify opponent and return them to matchmaking
+    this.notifyOpponentOfAbandonment(gameId, playerId);
+
+    // Clean up game state
+    this.cleanupAbandonedGame(gameId);
+  }
+
+  /**
+   * Notifies opponent about player disconnection
+   */
+  private notifyOpponentOfDisconnection(
+    gameId: string,
+    disconnectedPlayerId: string
+  ): void {
+    const session = this.activeGames.get(gameId);
+    if (!session) return;
+
+    const opponent = session.jogadores.find(
+      (j) => j.id !== disconnectedPlayerId
+    );
+    if (opponent && opponent.ws.readyState === WebSocket.OPEN) {
+      opponent.ws.send(
+        JSON.stringify({
+          type: "PLACEMENT_OPPONENT_DISCONNECTED",
+          gameId: gameId,
+          data: {
+            message: "Oponente desconectou. Aguardando reconexão...",
+            disconnectedPlayerId,
+            timestamp: Date.now(),
+          },
+        })
+      );
+    }
+  }
+
+  /**
+   * Notifies opponent about player reconnection
+   */
+  private notifyOpponentOfReconnection(
+    gameId: string,
+    reconnectedPlayerId: string
+  ): void {
+    const session = this.activeGames.get(gameId);
+    if (!session) return;
+
+    const opponent = session.jogadores.find(
+      (j) => j.id !== reconnectedPlayerId
+    );
+    if (opponent && opponent.ws.readyState === WebSocket.OPEN) {
+      opponent.ws.send(
+        JSON.stringify({
+          type: "PLACEMENT_OPPONENT_RECONNECTED",
+          gameId: gameId,
+          data: {
+            message: "Oponente reconectou. Continuando posicionamento...",
+            reconnectedPlayerId,
+            timestamp: Date.now(),
+          },
+        })
+      );
+    }
+  }
+
+  /**
+   * Notifies opponent about placement abandonment
+   */
+  private notifyOpponentOfAbandonment(
+    gameId: string,
+    abandonedPlayerId: string
+  ): void {
+    const session = this.activeGames.get(gameId);
+    if (!session) return;
+
+    const opponent = session.jogadores.find((j) => j.id !== abandonedPlayerId);
+    if (opponent && opponent.ws.readyState === WebSocket.OPEN) {
+      opponent.ws.send(
+        JSON.stringify({
+          type: "PLACEMENT_OPPONENT_ABANDONED",
+          gameId: gameId,
+          data: {
+            message:
+              "Oponente abandonou o jogo. Retornando para busca de oponente...",
+            abandonedPlayerId,
+            timestamp: Date.now(),
+          },
+        })
+      );
+    }
+  }
+
+  /**
+   * Cleans up abandoned game resources
+   */
+  private cleanupAbandonedGame(gameId: string): void {
+    // Remove placement states
+    this.placementStates.delete(gameId);
+
+    // Remove game session
+    this.activeGames.delete(gameId);
+
+    // Clean up any remaining timeouts for this game
+    for (const [key, timeoutId] of this.placementTimeouts.entries()) {
+      if (key.startsWith(gameId)) {
+        clearTimeout(timeoutId);
+        this.placementTimeouts.delete(key);
+      }
+    }
+
+    console.log(`🧹 Cleaned up abandoned game ${gameId}`);
+  }
+
+  /**
+   * Finds game ID by player ID
+   */
+  private findGameIdByPlayerId(playerId: string): string | null {
+    for (const [gameId, gameStates] of this.placementStates.entries()) {
+      if (gameStates.has(playerId)) {
+        return gameId;
+      }
+    }
+
+    // Also check active games
+    for (const [gameId, session] of this.activeGames.entries()) {
+      if (session.jogadores.some((j) => j.id === playerId)) {
+        return gameId;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Gets disconnection statistics for monitoring
+   */
+  public getDisconnectionStats() {
+    return {
+      disconnectedPlayers: this.disconnectedPlayers.size,
+      activeTimeouts: this.placementTimeouts.size,
+      disconnectedPlayersList: Array.from(
+        this.disconnectedPlayers.entries()
+      ).map(([playerId, info]) => ({
+        playerId,
+        gameId: info.gameId,
+        disconnectedAt: new Date(info.timestamp).toISOString(),
+        disconnectedFor: Date.now() - info.timestamp,
+      })),
+    };
+  }
+
+  /**
+   * Cleans up disconnection data (for testing/admin purposes)
+   */
+  public clearDisconnectionData(): void {
+    // Clear all timeouts
+    for (const timeoutId of this.placementTimeouts.values()) {
+      clearTimeout(timeoutId);
+    }
+
+    this.disconnectedPlayers.clear();
+    this.placementTimeouts.clear();
+    console.log("Disconnection data cleared");
   }
 }
