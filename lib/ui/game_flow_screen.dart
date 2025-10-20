@@ -22,25 +22,6 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
   @override
   void initState() {
     super.initState();
-    // Inicia observando o estado do jogo para detectar quando placement deve começar
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startListeningToGameState();
-    });
-  }
-
-  void _startListeningToGameState() {
-    // Observa mudanças no estado do jogo para detectar transições de fase
-    ref.listen<TelaJogoState>(gameStateProvider, (previous, current) {
-      _handleGameStateChange(previous, current);
-    });
-
-    // Observa mudanças no estado de placement
-    ref.listen<PlacementScreenState>(placementStateProvider, (
-      previous,
-      current,
-    ) {
-      _handlePlacementStateChange(previous, current);
-    });
   }
 
   void _handleGameStateChange(TelaJogoState? previous, TelaJogoState current) {
@@ -145,6 +126,19 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Observa mudanças no estado do jogo para detectar transições de fase
+    ref.listen<TelaJogoState>(gameStateProvider, (previous, current) {
+      _handleGameStateChange(previous, current);
+    });
+
+    // Observa mudanças no estado de placement
+    ref.listen<PlacementScreenState>(placementStateProvider, (
+      previous,
+      current,
+    ) {
+      _handlePlacementStateChange(previous, current);
+    });
+
     switch (_currentPhase) {
       case GameFlowPhase.matchmaking:
         return const TelaJogo(); // Tela de jogo atual que faz matchmaking
