@@ -360,6 +360,26 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
     );
   }
 
+  /// Conecta ao servidor com endereço e nome específicos
+  void conectarAoServidor(String serverAddress, String nomeUsuario) {
+    state = state.copyWith(
+      conectando: true,
+      nomeUsuario: nomeUsuario,
+      limparErro: true,
+    );
+
+    try {
+      final socketService = _ref.read(gameSocketProvider);
+      socketService.connect(serverAddress, nomeUsuario: nomeUsuario);
+    } catch (e) {
+      state = state.copyWith(
+        conectando: false,
+        statusConexao: StatusConexao.erro,
+        erro: 'Erro ao conectar: $e',
+      );
+    }
+  }
+
   /// Tenta reconectar ao servidor
   void reconnect() {
     _reconnectAsync();

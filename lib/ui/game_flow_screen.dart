@@ -7,9 +7,11 @@ import '../providers.dart';
 import '../placement_provider.dart';
 import 'tela_jogo.dart';
 import 'piece_placement_screen.dart';
+import 'matchmaking_screen.dart';
 import 'military_theme_widgets.dart';
 
-/// Tela que gerencia o fluxo completo do jogo, incluindo matchmaking, placement e jogo.
+/// Tela que gerencia o fluxo completo do jogo após o matchmaking.
+/// Esta tela assume que já há 2 jogadores conectados.
 class GameFlowScreen extends ConsumerStatefulWidget {
   const GameFlowScreen({super.key});
 
@@ -18,7 +20,7 @@ class GameFlowScreen extends ConsumerStatefulWidget {
 }
 
 class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
-  GameFlowPhase _currentPhase = GameFlowPhase.matchmaking;
+  GameFlowPhase _currentPhase = GameFlowPhase.placement;
   PlacementGameState? _placementState;
   List<PecaJogo>? _savedPlacedPieces; // Backup das peças posicionadas
 
@@ -26,54 +28,48 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
   void initState() {
     super.initState();
 
-    // Inicia o placement automaticamente se não há estado do jogo
+    // Verifica se há um estado de jogo válido, senão volta para matchmaking
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkAndStartPlacement();
+      _checkGameStateAndInitialize();
     });
   }
 
-  /// Verifica se deve iniciar o placement automaticamente
-  void _checkAndStartPlacement() {
+  /// Verifica o estado do jogo e inicializa o placement se apropriado
+  void _checkGameStateAndInitialize() {
     final currentGameState = ref.read(gameStateProvider);
 
-    // Se não há estado do jogo, cria um estado inicial para placement
-    if (currentGameState.estadoJogo == null &&
-        _currentPhase == GameFlowPhase.matchmaking) {
-      debugPrint('🚀 Criando estado inicial para placement');
-      _createInitialGameStateForPlacement();
+    debugPrint('🔍 Verificando estado do jogo...');
+    debugPrint('🔍 Estado: ${currentGameState.estadoJogo != null}');
+    debugPrint(
+      '🔍 Jogadores: ${currentGameState.estadoJogo?.jogadores.length ?? 0}',
+    );
+    debugPrint('🔍 Peças: ${currentGameState.estadoJogo?.pecas.length ?? 0}');
+
+    // Verifica se há um estado de jogo válido com 2 jogadores
+    if (currentGameState.estadoJogo == null ||
+        currentGameState.estadoJogo!.jogadores.length < 2) {
+      debugPrint('❌ Estado inválido, voltando para matchmaking');
+      _returnToMatchmaking();
+      return;
     }
+
+    // Se o jogo já tem peças, vai direto para o jogo
+    if (currentGameState.estadoJogo!.pecas.isNotEmpty) {
+      debugPrint('🎮 Jogo já tem peças, indo para fase de jogo');
+      _startGamePhase();
+      return;
+    }
+
+    // Inicia o placement
+    debugPrint('🔧 Iniciando placement');
+    _startPlacementPhase(currentGameState.estadoJogo!);
   }
 
-  /// Cria um estado inicial do jogo para permitir o placement
-  void _createInitialGameStateForPlacement() {
-    final nomeUsuario =
-        ref.read(gameStateProvider).nomeUsuario ?? 'Jogador Local';
-
-    // Cria um estado inicial mínimo para permitir o placement
-    final estadoInicial = EstadoJogo(
-      idPartida: 'local-game-${DateTime.now().millisecondsSinceEpoch}',
-      jogadores: [
-        Jogador(
-          id: 'local-player-id',
-          nome: nomeUsuario,
-          equipe: Equipe.verde, // Jogador local sempre verde
-        ),
-        // Adiciona um segundo jogador para evitar problemas de UI
-        Jogador(
-          id: 'opponent-player-id',
-          nome: 'Oponente',
-          equipe: Equipe.preta,
-        ),
-      ],
-      pecas: [], // Vazio para iniciar placement
-      idJogadorDaVez: 'local-player-id',
-      jogoTerminou: false,
+  /// Volta para a tela de matchmaking
+  void _returnToMatchmaking() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const MatchmakingScreen()),
     );
-
-    debugPrint('🚀 Estado inicial criado: $nomeUsuario vs Oponente');
-
-    // Atualiza o estado do jogo
-    ref.read(gameStateProvider.notifier).updateGameState(estadoInicial);
   }
 
   void _handleGameStateChange(TelaJogoState? previous, TelaJogoState current) {
@@ -83,25 +79,18 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
     debugPrint('🔄 Estado atual: ${estadoJogo?.pecas.length ?? 0} peças');
     debugPrint('🔄 Fase atual: $_currentPhase');
 
-    // Se recebeu um estado de jogo válido e estamos em matchmaking
-    if (estadoJogo != null && _currentPhase == GameFlowPhase.matchmaking) {
-      debugPrint('🔄 Estado válido recebido durante matchmaking');
+    // Se perdeu a conexão ou não há mais jogadores suficientes, volta para matchmaking
+    if (estadoJogo == null || estadoJogo.jogadores.length < 2) {
+      debugPrint('🔄 Estado inválido, voltando para matchmaking');
+      _returnToMatchmaking();
+      return;
+    }
 
-      // Verifica se deve iniciar placement
-      if (_shouldStartPlacement(estadoJogo)) {
-        debugPrint('🔄 Iniciando fase de placement');
-        _startPlacementPhase(estadoJogo);
-      } else if (_shouldStartGame(estadoJogo)) {
-        debugPrint('🔄 Pulando placement - jogo já tem peças');
-        // Se o jogo já está em progresso, pula placement
-        _startGamePhase();
-      } else {
-        debugPrint('🔄 Nenhuma condição atendida para mudança de fase');
-      }
-    } else {
-      debugPrint(
-        '🔄 Condições não atendidas: estadoJogo=${estadoJogo != null}, fase=$_currentPhase',
-      );
+    // Se estamos em placement e o jogo agora tem peças, vai para o jogo
+    if (_currentPhase == GameFlowPhase.placement &&
+        estadoJogo.pecas.isNotEmpty) {
+      debugPrint('🔄 Placement concluído, iniciando jogo');
+      _startGamePhase();
     }
   }
 
@@ -116,35 +105,10 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
     }
   }
 
-  bool _shouldStartPlacement(EstadoJogo estadoJogo) {
-    // Inicia placement se:
-    // 1. O jogo não tem peças (estado inicial)
-    // 2. Há jogadores conectados
-    // 3. O jogo não terminou
-    final shouldStart =
-        estadoJogo.pecas.isEmpty &&
-        estadoJogo.jogadores.isNotEmpty &&
-        !estadoJogo.jogoTerminou;
-
-    debugPrint(
-      '🔍 _shouldStartPlacement: peças=${estadoJogo.pecas.length}, jogadores=${estadoJogo.jogadores.length}, terminou=${estadoJogo.jogoTerminou} -> $shouldStart',
-    );
-    return shouldStart;
-  }
-
-  bool _shouldStartGame(EstadoJogo estadoJogo) {
-    // Se o jogo já tem peças posicionadas, pula placement
-    final shouldStart = estadoJogo.pecas.isNotEmpty;
-    debugPrint(
-      '🔍 _shouldStartGame: peças=${estadoJogo.pecas.length} -> $shouldStart',
-    );
-    return shouldStart;
-  }
-
   void _startPlacementPhase(EstadoJogo estadoJogo) {
     // Evita iniciar placement múltiplas vezes
-    if (_currentPhase != GameFlowPhase.matchmaking) {
-      debugPrint('🔄 Placement já foi iniciado, ignorando');
+    if (_currentPhase != GameFlowPhase.placement) {
+      debugPrint('🔄 Placement já foi iniciado ou fase incorreta, ignorando');
       return;
     }
 
@@ -155,7 +119,8 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
     final jogadorLocal = _findLocalPlayer(estadoJogo, nomeUsuario);
 
     if (jogadorLocal == null) {
-      debugPrint('❌ Jogador local não encontrado');
+      debugPrint('❌ Jogador local não encontrado, voltando para matchmaking');
+      _returnToMatchmaking();
       return;
     }
 
@@ -176,11 +141,11 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
         .read(placementStateProvider.notifier)
         .initializePlacement(_placementState!);
 
-    setState(() {
-      _currentPhase = GameFlowPhase.placement;
-    });
-
     debugPrint('🔄 Placement phase iniciado com sucesso');
+    debugPrint(
+      '🔄 Jogador: ${jogadorLocal.nome} (${jogadorLocal.equipe.name})',
+    );
+    debugPrint('🔄 Área: $playerArea');
   }
 
   void _startGamePhase() {
@@ -430,9 +395,7 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
 
   void _handleBackFromPlacement() {
     // Volta para matchmaking
-    setState(() {
-      _currentPhase = GameFlowPhase.matchmaking;
-    });
+    _returnToMatchmaking();
   }
 
   void _handleGameStart() {
@@ -472,9 +435,6 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
     });
 
     switch (_currentPhase) {
-      case GameFlowPhase.matchmaking:
-        return const TelaJogo(); // Tela de jogo atual que faz matchmaking
-
       case GameFlowPhase.placement:
         if (_placementState == null) {
           return _buildLoadingScreen();
@@ -519,11 +479,8 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
   }
 }
 
-/// Fases do fluxo do jogo.
+/// Fases do fluxo do jogo após matchmaking.
 enum GameFlowPhase {
-  /// Aguardando matchmaking.
-  matchmaking,
-
   /// Fase de posicionamento de peças.
   placement,
 

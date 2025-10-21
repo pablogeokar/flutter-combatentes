@@ -1,5 +1,5 @@
 import 'package:combatentes/ui/tela_nome_usuario.dart';
-import 'package:combatentes/ui/game_flow_screen.dart';
+import 'package:combatentes/ui/matchmaking_screen.dart';
 import 'package:combatentes/services/user_preferences.dart';
 import 'package:combatentes/audio_service.dart';
 import 'package:flutter/material.dart';
@@ -56,9 +56,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (mounted) {
       if (hasName) {
-        // Se já tem nome, vai para o fluxo do jogo (que inclui placement)
+        // Se já tem nome, vai para o matchmaking
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const GameFlowScreen()),
+          MaterialPageRoute(builder: (context) => const MatchmakingScreen()),
         );
       } else {
         // Se não tem nome, vai para a tela de nome
@@ -81,7 +81,7 @@ class _SplashScreenState extends State<SplashScreen> {
         ),
         child: Container(
           // Overlay escuro para melhor legibilidade
-          decoration: BoxDecoration(color: Colors.black.withOpacity(0.4)),
+          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.4)),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -90,10 +90,10 @@ class _SplashScreenState extends State<SplashScreen> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                       width: 2,
                     ),
                   ),
@@ -122,7 +122,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
@@ -142,7 +142,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(50),
                   ),
                   child: const CircularProgressIndicator(

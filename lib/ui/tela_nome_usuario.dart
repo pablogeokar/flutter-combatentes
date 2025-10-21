@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/user_preferences.dart';
-import 'game_flow_screen.dart';
+import 'matchmaking_screen.dart';
 import 'military_theme_widgets.dart';
 import 'server_config_dialog.dart';
 
@@ -42,7 +42,7 @@ class _TelaNomeUsuarioState extends State<TelaNomeUsuario> {
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const GameFlowScreen()),
+          MaterialPageRoute(builder: (context) => const MatchmakingScreen()),
         );
       }
     } catch (e) {
