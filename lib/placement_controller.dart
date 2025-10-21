@@ -12,6 +12,7 @@ class PlacementController extends ChangeNotifier {
   final GameSocketService _socketService;
 
   PlacementGameState? _currentState;
+  PlacementGameState? _previousState;
   Timer? _countdownTimer;
   int _countdownSeconds = 3;
   bool _isGameStarting = false;
@@ -207,6 +208,7 @@ class PlacementController extends ChangeNotifier {
 
   /// Atualiza o estado do posicionamento.
   void updateState(PlacementGameState newState) {
+    _previousState = _currentState;
     _currentState = newState;
 
     // Atualiza atividade de rede para evitar timeout falso
@@ -227,10 +229,14 @@ class PlacementController extends ChangeNotifier {
       debugPrint('MultiInstanceCoordinator não disponível: $e');
     }
 
-    // Verifica se deve iniciar countdown
-    debugPrint(
-      'PlacementController: Estado atualizado - Local: ${newState.localStatus}, Oponente: ${newState.opponentStatus}, GameStarting: $_isGameStarting',
-    );
+    // Verifica se deve iniciar countdown (log apenas em mudanças importantes)
+    if (_previousState?.localStatus != newState.localStatus ||
+        _previousState?.opponentStatus != newState.opponentStatus ||
+        _previousState?.gamePhase != newState.gamePhase) {
+      debugPrint(
+        'PlacementController: Estado atualizado - Local: ${newState.localStatus}, Oponente: ${newState.opponentStatus}, GameStarting: $_isGameStarting',
+      );
+    }
 
     if (newState.localStatus == PlacementStatus.ready &&
         newState.opponentStatus == PlacementStatus.ready &&
@@ -400,12 +406,18 @@ class PlacementController extends ChangeNotifier {
 
   /// Envia mensagem para o servidor com timeout.
   Future<void> _sendMessageWithTimeout(PlacementMessage message) async {
-    debugPrint('Enviando mensagem de placement: ${message.toJson()}');
+    debugPrint('📤 Enviando mensagem de placement: ${message.type}');
+    debugPrint('📤 GameId: ${message.gameId}');
+    debugPrint('📤 PlayerId: ${message.playerId}');
 
     try {
       // Envia mensagem real para o servidor
       _socketService.enviarMensagemPlacement(message.toJson());
       debugPrint('✅ Mensagem de placement enviada com sucesso');
+
+      // Aguarda um pouco para ver se há resposta
+      await Future.delayed(const Duration(seconds: 2));
+      debugPrint('⏰ Aguardando resposta do servidor...');
     } catch (e) {
       debugPrint('❌ Erro ao enviar mensagem de placement: $e');
       throw Exception('Erro ao comunicar com servidor: $e');
