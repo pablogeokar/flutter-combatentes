@@ -147,12 +147,29 @@ class GameSocketService {
         // Envia o nome do usuário assim que conecta
         if (nomeUsuario != null) {
           debugPrint('🏷️ Enviando nome do usuário: $nomeUsuario');
-          Future.delayed(const Duration(milliseconds: 150), () {
-            _sendMessage({
-              'type': 'definirNome',
-              'payload': {'nome': nomeUsuario},
-            });
-            debugPrint('✅ Mensagem definirNome enviada');
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (_isConnected && _channel != null) {
+              _sendMessage({
+                'type': 'definirNome',
+                'payload': {'nome': nomeUsuario},
+              });
+              debugPrint('✅ Mensagem definirNome enviada');
+            } else {
+              debugPrint('❌ Conexão não estabelecida, tentando novamente...');
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (_isConnected && _channel != null) {
+                  _sendMessage({
+                    'type': 'definirNome',
+                    'payload': {'nome': nomeUsuario},
+                  });
+                  debugPrint(
+                    '✅ Mensagem definirNome enviada (segunda tentativa)',
+                  );
+                } else {
+                  debugPrint('❌ Falha ao enviar nome após segunda tentativa');
+                }
+              });
+            }
           });
         } else {
           debugPrint('⚠️ Nome do usuário é null, não enviando');
