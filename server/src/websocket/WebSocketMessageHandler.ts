@@ -414,6 +414,10 @@ export class WebSocketMessageHandler {
         };
         // Update the stored state
         gameStates.set(clientId, updatedPlayerState);
+        console.log(`✅ Estado atualizado - placedPieces.length: ${updatedPlayerState.placedPieces.length}`);
+      } else {
+        console.log(`⚠️ Nenhuma peça recebida na mensagem ou array vazio`);
+        console.log(`📊 Estado atual - placedPieces.length: ${playerState.placedPieces.length}`);
       }
 
       // Confirm placement with comprehensive validation

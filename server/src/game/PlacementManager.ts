@@ -103,13 +103,20 @@ export class PlacementManager {
     }
 
     try {
-      // Create new piece
+      // Create new piece - get team from existing pieces or determine from player area
+      let playerTeam: Equipe;
+      if (placementState.placedPieces.length > 0) {
+        // Use team from existing pieces
+        playerTeam = placementState.placedPieces[0].equipe;
+      } else {
+        // Determine team from player area
+        playerTeam = placementState.playerArea.includes(0) ? Equipe.Verde : Equipe.Preta;
+      }
+
       const newPiece: PecaJogo = {
         id: uuidv4(),
         patente,
-        equipe: placementState.playerId.includes("verde")
-          ? Equipe.Verde
-          : Equipe.Preta, // Simple team detection
+        equipe: playerTeam,
         posicao: position,
         foiRevelada: false,
       };
