@@ -49,6 +49,8 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
       debugPrint('🔍 Placement já existe no provider, ignorando');
       _hasInitialized = true;
       _placementState = placementState.placementState;
+      setState(() {});
+      debugPrint('🔍 UI atualizada para mostrar placement do provider');
       return;
     }
 
@@ -132,6 +134,8 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
     if (existingPlacement.placementState != null) {
       debugPrint('🔄 Placement já existe no provider, reutilizando');
       _placementState = existingPlacement.placementState;
+      setState(() {});
+      debugPrint('🔄 UI atualizada para mostrar placement existente');
       return;
     }
 
@@ -164,6 +168,10 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
       '🔄 Jogador: ${jogadorLocal.nome} (${jogadorLocal.equipe.name})',
     );
     debugPrint('🔄 Área: $playerArea');
+
+    // Atualiza a UI para mostrar a tela de placement
+    setState(() {});
+    debugPrint('🔄 UI atualizada para mostrar placement');
   }
 
   Jogador? _findLocalPlayer(EstadoJogo estadoJogo, String? nomeUsuario) {
