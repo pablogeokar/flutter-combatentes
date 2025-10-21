@@ -424,15 +424,32 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
   Widget _buildStatusSection() {
     final state = _controller.currentState ?? widget.initialState;
 
-    return PlacementStatusWidget(
-      localPiecesRemaining: _inventory.totalPiecesRemaining,
-      opponentStatus: state.opponentStatus,
-      canConfirm:
-          _inventory.isEmpty && state.localStatus == PlacementStatus.placing,
-      localStatus: state.localStatus,
-      onReadyPressed: _handleReadyPressed,
-      isGameStarting: _controller.isGameStarting,
-      countdownSeconds: _controller.countdownSeconds,
+    return Column(
+      children: [
+        PlacementStatusWidget(
+          localPiecesRemaining: _inventory.totalPiecesRemaining,
+          opponentStatus: state.opponentStatus,
+          canConfirm:
+              _inventory.isEmpty &&
+              state.localStatus == PlacementStatus.placing,
+          localStatus: state.localStatus,
+          onReadyPressed: _handleReadyPressed,
+          isGameStarting: _controller.isGameStarting,
+          countdownSeconds: _controller.countdownSeconds,
+        ),
+
+        // Botão de teste para simular oponente (apenas quando aguardando)
+        if (state.localStatus == PlacementStatus.waiting)
+          Padding(
+            padding: const EdgeInsets.only(top: 16.0),
+            child: MilitaryThemeWidgets.militaryButton(
+              text: '🤖 Simular Oponente Pronto',
+              onPressed: () => _controller.simulateOpponentReady(),
+              icon: Icons.smart_toy,
+              backgroundColor: Colors.orange,
+            ),
+          ),
+      ],
     );
   }
 

@@ -367,7 +367,7 @@ class PlacementController extends ChangeNotifier {
         );
 
         // SIMULAÇÃO DE OPONENTE PARA TESTE (remove quando tiver servidor real)
-        _simulateOpponentAfterDelay();
+        // _simulateOpponentAfterDelay(); // COMENTADO: Aguarda ambos jogadores ficarem prontos
       }
     } catch (e) {
       // Reverte status em caso de erro
@@ -1022,7 +1022,7 @@ class PlacementController extends ChangeNotifier {
       availablePieces: _currentState!.availablePieces,
       placedPieces: _currentState!.placedPieces,
       playerArea: _currentState!.playerArea,
-      localStatus: _currentState!.localStatus,
+      localStatus: PlacementStatus.ready, // Ambos prontos
       opponentStatus: PlacementStatus.ready,
       selectedPieceType: _currentState!.selectedPieceType,
       gamePhase: _currentState!.gamePhase,

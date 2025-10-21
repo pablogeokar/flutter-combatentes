@@ -54,10 +54,13 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
   }
 
   bool _shouldStartPlacement(EstadoJogo estadoJogo) {
-    // TODO: Implementar lógica para detectar quando placement deve iniciar
-    // Por enquanto, sempre inicia placement quando recebe um estado de jogo
-    // Na implementação real, o servidor enviaria uma indicação específica
-    return true;
+    // Inicia placement se:
+    // 1. O jogo não tem peças (estado inicial)
+    // 2. Há jogadores conectados
+    // 3. O jogo não terminou
+    return estadoJogo.pecas.isEmpty &&
+        estadoJogo.jogadores.isNotEmpty &&
+        !estadoJogo.jogoTerminou;
   }
 
   bool _shouldStartGame(EstadoJogo estadoJogo) {
@@ -175,6 +178,15 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
         // Cria estado inicial do jogo
         final nomeUsuario = currentGameState.nomeUsuario ?? 'Jogador Local';
 
+        // Cria peças do oponente automaticamente
+        final opponentTeam = _determinePlayerTeam(placedPieces!) == Equipe.verde
+            ? Equipe.preta
+            : Equipe.verde;
+        debugPrint(
+          '🤖 Criando peças do oponente para equipe: ${opponentTeam.name}',
+        );
+        final opponentPieces = _createOpponentPieces(opponentTeam);
+
         gameState = EstadoJogo(
           idPartida: gameId,
           jogadores: [
@@ -183,15 +195,9 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
               nome: nomeUsuario,
               equipe: _determinePlayerTeam(placedPieces!),
             ),
-            Jogador(
-              id: 'opponent-id',
-              nome: 'Oponente',
-              equipe: _determinePlayerTeam(placedPieces!) == Equipe.verde
-                  ? Equipe.preta
-                  : Equipe.verde,
-            ),
+            Jogador(id: 'opponent-id', nome: 'Oponente', equipe: opponentTeam),
           ],
-          pecas: placedPieces!,
+          pecas: [...placedPieces!, ...opponentPieces],
           idJogadorDaVez: playerId, // Jogador local começa
           jogoTerminou: false,
         );
@@ -230,6 +236,64 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
       debugPrint('❌ Erro ao carregar peças do armazenamento: $e');
     }
     return null;
+  }
+
+  /// Cria as peças do oponente automaticamente para modo offline.
+  List<PecaJogo> _createOpponentPieces(Equipe opponentTeam) {
+    final pieces = <PecaJogo>[];
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    // Determina as linhas do oponente baseado na equipe
+    final opponentRows = opponentTeam == Equipe.verde
+        ? [0, 1, 2, 3]
+        : [6, 7, 8, 9];
+
+    // Composição do exército (40 peças)
+    final composition = {
+      Patente.marechal: 1,
+      Patente.general: 1,
+      Patente.coronel: 2,
+      Patente.major: 3,
+      Patente.capitao: 4,
+      Patente.tenente: 4,
+      Patente.sargento: 4,
+      Patente.cabo: 5,
+      Patente.soldado: 8,
+      Patente.agenteSecreto: 1,
+      Patente.prisioneiro: 1,
+      Patente.minaTerrestre: 6,
+    };
+
+    int pieceIndex = 0;
+
+    // Cria as peças e as posiciona aleatoriamente nas linhas do oponente
+    for (final entry in composition.entries) {
+      final patente = entry.key;
+      final count = entry.value;
+
+      for (int i = 0; i < count; i++) {
+        // Calcula posição aleatória nas linhas do oponente
+        final row = opponentRows[pieceIndex ~/ 10];
+        final col = pieceIndex % 10;
+
+        pieces.add(
+          PecaJogo(
+            id: 'opponent_piece_${timestamp}_$pieceIndex',
+            patente: patente,
+            equipe: opponentTeam,
+            posicao: PosicaoTabuleiro(linha: row, coluna: col),
+            foiRevelada: false,
+          ),
+        );
+
+        pieceIndex++;
+      }
+    }
+
+    debugPrint(
+      '🤖 Criadas ${pieces.length} peças para o oponente (${opponentTeam.name})',
+    );
+    return pieces;
   }
 
   /// Determina a equipe do jogador baseado nas peças posicionadas.
