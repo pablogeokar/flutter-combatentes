@@ -2,12 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 
-import '../lib/modelos_jogo.dart';
-import '../lib/placement_controller.dart';
-import '../lib/placement_provider.dart';
-import '../lib/placement_error_handler.dart';
-import '../lib/game_socket_service.dart';
-import '../lib/providers.dart';
+import 'package:combatentes/modelos_jogo.dart';
+import 'package:combatentes/placement_controller.dart';
+import 'package:combatentes/placement_provider.dart';
+import 'package:combatentes/placement_error_handler.dart';
+import 'package:combatentes/game_socket_service.dart';
+import 'package:combatentes/providers.dart';
 
 /// Test implementation of GameSocketService that doesn't actually connect
 class TestGameSocketService extends GameSocketService {

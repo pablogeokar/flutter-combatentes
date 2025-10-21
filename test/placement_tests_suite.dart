@@ -11,6 +11,7 @@
 /// - Controller logic and state management
 /// - Provider state management and UI integration
 /// - Game state model serialization and validation
+library;
 
 import 'placement_logic_test.dart' as placement_logic;
 import 'placement_controller_test.dart' as placement_controller;
