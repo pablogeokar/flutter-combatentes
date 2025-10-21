@@ -242,8 +242,11 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Inventário à esquerda
-                Expanded(flex: 2, child: _buildInventorySection()),
+                // Inventário à esquerda - com scroll próprio se necessário
+                Expanded(
+                  flex: 2,
+                  child: SingleChildScrollView(child: _buildInventorySection()),
+                ),
                 const SizedBox(width: 16),
 
                 // Tabuleiro no centro
@@ -277,13 +280,19 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
                 // Tabuleiro e inventário lado a lado
                 Expanded(
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Tabuleiro à esquerda
                       Expanded(flex: 3, child: _buildBoardSection()),
                       const SizedBox(width: 12),
 
-                      // Inventário à direita
-                      Expanded(flex: 2, child: _buildInventorySection()),
+                      // Inventário à direita - com scroll próprio se necessário
+                      Expanded(
+                        flex: 2,
+                        child: SingleChildScrollView(
+                          child: _buildInventorySection(),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -313,8 +322,16 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
                 _buildBoardSection(),
                 const SizedBox(height: 12),
 
-                // Inventário na parte inferior
-                _buildInventorySection(),
+                // Inventário na parte inferior - com altura flexível
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: 200,
+                    maxHeight: 600,
+                  ),
+                  child: _buildInventorySection(),
+                ),
+                // Espaço extra para garantir scroll
+                const SizedBox(height: 20),
               ],
             ),
           ),

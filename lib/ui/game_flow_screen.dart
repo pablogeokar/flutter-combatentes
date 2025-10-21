@@ -25,20 +25,83 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Inicia o placement automaticamente se não há estado do jogo
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndStartPlacement();
+    });
+  }
+
+  /// Verifica se deve iniciar o placement automaticamente
+  void _checkAndStartPlacement() {
+    final currentGameState = ref.read(gameStateProvider);
+
+    // Se não há estado do jogo, cria um estado inicial para placement
+    if (currentGameState.estadoJogo == null &&
+        _currentPhase == GameFlowPhase.matchmaking) {
+      debugPrint('🚀 Criando estado inicial para placement');
+      _createInitialGameStateForPlacement();
+    }
+  }
+
+  /// Cria um estado inicial do jogo para permitir o placement
+  void _createInitialGameStateForPlacement() {
+    final nomeUsuario =
+        ref.read(gameStateProvider).nomeUsuario ?? 'Jogador Local';
+
+    // Cria um estado inicial mínimo para permitir o placement
+    final estadoInicial = EstadoJogo(
+      idPartida: 'local-game-${DateTime.now().millisecondsSinceEpoch}',
+      jogadores: [
+        Jogador(
+          id: 'local-player-id',
+          nome: nomeUsuario,
+          equipe: Equipe.verde, // Jogador local sempre verde
+        ),
+        // Adiciona um segundo jogador para evitar problemas de UI
+        Jogador(
+          id: 'opponent-player-id',
+          nome: 'Oponente',
+          equipe: Equipe.preta,
+        ),
+      ],
+      pecas: [], // Vazio para iniciar placement
+      idJogadorDaVez: 'local-player-id',
+      jogoTerminou: false,
+    );
+
+    debugPrint('🚀 Estado inicial criado: $nomeUsuario vs Oponente');
+
+    // Atualiza o estado do jogo
+    ref.read(gameStateProvider.notifier).updateGameState(estadoInicial);
   }
 
   void _handleGameStateChange(TelaJogoState? previous, TelaJogoState current) {
     final estadoJogo = current.estadoJogo;
 
+    debugPrint('🔄 GameFlowScreen: _handleGameStateChange chamado');
+    debugPrint('🔄 Estado atual: ${estadoJogo?.pecas.length ?? 0} peças');
+    debugPrint('🔄 Fase atual: $_currentPhase');
+
     // Se recebeu um estado de jogo válido e estamos em matchmaking
     if (estadoJogo != null && _currentPhase == GameFlowPhase.matchmaking) {
+      debugPrint('🔄 Estado válido recebido durante matchmaking');
+
       // Verifica se deve iniciar placement
       if (_shouldStartPlacement(estadoJogo)) {
+        debugPrint('🔄 Iniciando fase de placement');
         _startPlacementPhase(estadoJogo);
       } else if (_shouldStartGame(estadoJogo)) {
+        debugPrint('🔄 Pulando placement - jogo já tem peças');
         // Se o jogo já está em progresso, pula placement
         _startGamePhase();
+      } else {
+        debugPrint('🔄 Nenhuma condição atendida para mudança de fase');
       }
+    } else {
+      debugPrint(
+        '🔄 Condições não atendidas: estadoJogo=${estadoJogo != null}, fase=$_currentPhase',
+      );
     }
   }
 
@@ -58,22 +121,43 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
     // 1. O jogo não tem peças (estado inicial)
     // 2. Há jogadores conectados
     // 3. O jogo não terminou
-    return estadoJogo.pecas.isEmpty &&
+    final shouldStart =
+        estadoJogo.pecas.isEmpty &&
         estadoJogo.jogadores.isNotEmpty &&
         !estadoJogo.jogoTerminou;
+
+    debugPrint(
+      '🔍 _shouldStartPlacement: peças=${estadoJogo.pecas.length}, jogadores=${estadoJogo.jogadores.length}, terminou=${estadoJogo.jogoTerminou} -> $shouldStart',
+    );
+    return shouldStart;
   }
 
   bool _shouldStartGame(EstadoJogo estadoJogo) {
     // Se o jogo já tem peças posicionadas, pula placement
-    return estadoJogo.pecas.isNotEmpty;
+    final shouldStart = estadoJogo.pecas.isNotEmpty;
+    debugPrint(
+      '🔍 _shouldStartGame: peças=${estadoJogo.pecas.length} -> $shouldStart',
+    );
+    return shouldStart;
   }
 
   void _startPlacementPhase(EstadoJogo estadoJogo) {
+    // Evita iniciar placement múltiplas vezes
+    if (_currentPhase != GameFlowPhase.matchmaking) {
+      debugPrint('🔄 Placement já foi iniciado, ignorando');
+      return;
+    }
+
+    debugPrint('🔄 Iniciando placement phase');
+
     // Determina a área do jogador baseado na equipe
     final nomeUsuario = ref.read(gameStateProvider).nomeUsuario;
     final jogadorLocal = _findLocalPlayer(estadoJogo, nomeUsuario);
 
-    if (jogadorLocal == null) return;
+    if (jogadorLocal == null) {
+      debugPrint('❌ Jogador local não encontrado');
+      return;
+    }
 
     // Área do jogador baseada na equipe (Verde: linhas 0-3, Preta: linhas 6-9)
     final playerArea = jogadorLocal.equipe == Equipe.verde
@@ -95,6 +179,8 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
     setState(() {
       _currentPhase = GameFlowPhase.placement;
     });
+
+    debugPrint('🔄 Placement phase iniciado com sucesso');
   }
 
   void _startGamePhase() {
@@ -186,6 +272,13 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
           '🤖 Criando peças do oponente para equipe: ${opponentTeam.name}',
         );
         final opponentPieces = _createOpponentPieces(opponentTeam);
+        debugPrint('🤖 Criadas ${opponentPieces.length} peças para o oponente');
+
+        debugPrint('🔍 Peças do jogador: ${placedPieces!.length}');
+        debugPrint('🔍 Peças do oponente: ${opponentPieces.length}');
+        debugPrint(
+          '🔍 Total de peças: ${placedPieces!.length + opponentPieces.length}',
+        );
 
         gameState = EstadoJogo(
           idPartida: gameId,
@@ -200,6 +293,10 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
           pecas: [...placedPieces!, ...opponentPieces],
           idJogadorDaVez: playerId, // Jogador local começa
           jogoTerminou: false,
+        );
+
+        debugPrint(
+          '🎮 Estado criado com ${gameState.pecas.length} peças total',
         );
       }
 
@@ -305,15 +402,30 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
   }
 
   Jogador? _findLocalPlayer(EstadoJogo estadoJogo, String? nomeUsuario) {
-    if (nomeUsuario == null) return null;
+    if (nomeUsuario == null) {
+      debugPrint('❌ nomeUsuario é null');
+      return null;
+    }
 
-    return estadoJogo.jogadores.where((jogador) {
+    final jogadorEncontrado = estadoJogo.jogadores.where((jogador) {
       final nomeJogador = jogador.nome.trim().toLowerCase();
       final nomeLocal = nomeUsuario.trim().toLowerCase();
-      return nomeJogador == nomeLocal ||
+
+      final match =
+          nomeJogador == nomeLocal ||
           nomeJogador.contains(nomeLocal) ||
           nomeLocal.contains(nomeJogador);
+
+      return match;
     }).firstOrNull;
+
+    if (jogadorEncontrado != null) {
+      debugPrint('✅ Jogador local encontrado: ${jogadorEncontrado.nome}');
+    } else {
+      debugPrint('❌ Jogador local não encontrado para "$nomeUsuario"');
+    }
+
+    return jogadorEncontrado;
   }
 
   void _handleBackFromPlacement() {

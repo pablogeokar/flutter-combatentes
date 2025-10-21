@@ -341,11 +341,22 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
   /// Atualiza o estado do jogo (usado para transferir peças do placement)
   void updateGameState(EstadoJogo novoEstado) {
+    debugPrint(
+      '🎮 updateGameState chamado com ${novoEstado.pecas.length} peças',
+    );
+    debugPrint(
+      '🎮 Jogadores: ${novoEstado.jogadores.map((j) => '${j.nome} (${j.equipe.name})').join(', ')}',
+    );
+
     state = state.copyWith(
       estadoJogo: novoEstado,
       conectando: false,
       statusConexao: StatusConexao.jogando,
       limparErro: true,
+    );
+
+    debugPrint(
+      '🎮 Estado atualizado - Total de peças no estado: ${state.estadoJogo?.pecas.length ?? 0}',
     );
   }
 

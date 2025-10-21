@@ -48,6 +48,16 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     final estadoJogo = uiState.estadoJogo;
     final nomeUsuario = uiState.nomeUsuario;
 
+    // Debug: Log do estado recebido
+    if (estadoJogo != null) {
+      debugPrint('🎯 TelaJogo recebeu ${estadoJogo.pecas.length} peças');
+      debugPrint(
+        '🎯 Jogadores: ${estadoJogo.jogadores.map((j) => '${j.nome} (${j.equipe.name})').join(', ')}',
+      );
+    } else {
+      debugPrint('🎯 TelaJogo: estadoJogo é null');
+    }
+
     // Escuta por mudanças de estado para mostrar dialogs ou snackbars, sem reconstruir o widget.
     ref.listen<TelaJogoState>(gameStateProvider, (previous, next) {
       // Detecta quando o oponente desconecta
@@ -1129,7 +1139,9 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
               ),
             ),
           ),
-          _buildCompactPlayerInfo(estado.jogadores[1], estado, nomeUsuario),
+          // Só mostra o segundo jogador se existir
+          if (estado.jogadores.length > 1)
+            _buildCompactPlayerInfo(estado.jogadores[1], estado, nomeUsuario),
         ],
       ),
     );
