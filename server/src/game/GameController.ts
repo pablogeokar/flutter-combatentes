@@ -460,6 +460,9 @@ export class GameController {
     // Combine all pieces
     const allPieces = [...player1Pieces, ...player2Pieces];
 
+    console.log(`🎯 Total pieces combined: ${allPieces.length}`);
+    console.log(`🎯 Sample combined piece:`, allPieces[0]);
+
     // Create initial game state
     const estadoJogo: EstadoJogo = {
       idPartida: gameId,
@@ -469,6 +472,8 @@ export class GameController {
       jogoTerminou: false,
       idVencedor: null,
     };
+
+    console.log(`🎯 Final game state pieces: ${estadoJogo.pecas.length}`);
 
     return { success: true, estadoJogo };
   }

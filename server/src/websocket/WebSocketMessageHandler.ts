@@ -509,6 +509,11 @@ export class WebSocketMessageHandler {
       const player1Pieces = playerStates[0].placedPieces;
       const player2Pieces = playerStates[1].placedPieces;
 
+      console.log(`🔍 Player 1 pieces: ${player1Pieces.length}`);
+      console.log(`🔍 Player 2 pieces: ${player2Pieces.length}`);
+      console.log(`🔍 Sample Player 1 piece:`, player1Pieces[0]);
+      console.log(`🔍 Sample Player 2 piece:`, player2Pieces[0]);
+
       // Transition to game start
       const result = this.gameController.transitionToGameStart(
         gameId,
@@ -595,7 +600,8 @@ export class WebSocketMessageHandler {
    * Broadcasts game start to both players
    */
   private broadcastGameStart(session: GameSession): void {
-    const message = JSON.stringify({
+    // Send placement game start notification
+    const placementMessage = JSON.stringify({
       type: "PLACEMENT_GAME_START",
       gameId: session.id,
       data: {
@@ -603,9 +609,17 @@ export class WebSocketMessageHandler {
       },
     });
 
+    // Send game state update
+    const gameStateMessage = JSON.stringify({
+      type: "atualizacaoEstado",
+      payload: session.estadoJogo,
+    });
+
     session.jogadores.forEach((player) => {
       if (player.ws.readyState === WebSocket.OPEN) {
-        player.ws.send(message);
+        // Send both messages
+        player.ws.send(placementMessage);
+        player.ws.send(gameStateMessage);
       }
     });
   }
