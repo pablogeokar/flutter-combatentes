@@ -596,7 +596,7 @@ export class WebSocketMessageHandler {
    */
   private broadcastGameStart(session: GameSession): void {
     const message = JSON.stringify({
-      type: "GAME_START",
+      type: "PLACEMENT_GAME_START",
       gameId: session.id,
       data: {
         estadoJogo: session.estadoJogo,

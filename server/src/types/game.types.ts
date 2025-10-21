@@ -111,7 +111,7 @@ export interface PlacementMessage {
     | "PLACEMENT_UPDATE"
     | "PLACEMENT_READY"
     | "PLACEMENT_STATUS"
-    | "GAME_START";
+    | "PLACEMENT_GAME_START";
   gameId: string;
   playerId: string;
   data?: PlacementMessageData;
