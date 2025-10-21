@@ -407,21 +407,42 @@ export class WebSocketMessageHandler {
       // Update player state with pieces from message if provided
       let updatedPlayerState = playerState;
       if (message.data?.allPieces && message.data.allPieces.length > 0) {
-        console.log(`🎯 Atualizando estado com ${message.data.allPieces.length} peças recebidas`);
+        console.log(
+          `🎯 Atualizando estado com ${message.data.allPieces.length} peças recebidas`
+        );
+
+        // Calculate updated inventory based on placed pieces
+        const updatedInventory = { ...playerState.availablePieces };
+
+        // Reset inventory to empty since all pieces are now placed
+        Object.keys(updatedInventory).forEach((patente) => {
+          updatedInventory[patente] = 0;
+        });
+
         updatedPlayerState = {
           ...playerState,
           placedPieces: message.data.allPieces,
+          availablePieces: updatedInventory,
         };
+
         // Update the stored state
         gameStates.set(clientId, updatedPlayerState);
-        console.log(`✅ Estado atualizado - placedPieces.length: ${updatedPlayerState.placedPieces.length}`);
+        console.log(
+          `✅ Estado atualizado - placedPieces.length: ${updatedPlayerState.placedPieces.length}`
+        );
+        console.log(`✅ Inventário zerado - todas as peças foram posicionadas`);
       } else {
         console.log(`⚠️ Nenhuma peça recebida na mensagem ou array vazio`);
-        console.log(`📊 Estado atual - placedPieces.length: ${playerState.placedPieces.length}`);
+        console.log(
+          `📊 Estado atual - placedPieces.length: ${playerState.placedPieces.length}`
+        );
       }
 
       // Confirm placement with comprehensive validation
-      const result = placementManager.confirmPlacement(updatedPlayerState, context);
+      const result = placementManager.confirmPlacement(
+        updatedPlayerState,
+        context
+      );
 
       if (!result.success || !result.data) {
         this.sendPlacementErrorDetails(ws, result.error!);
