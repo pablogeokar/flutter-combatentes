@@ -20,6 +20,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   bool _isConnecting = false;
+  bool _hasNavigated = false; // Flag para evitar navegação dupla
 
   @override
   void initState() {
@@ -163,9 +164,12 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
     // Escuta mudanças no estado para detectar quando o jogo deve começar
     ref.listen<TelaJogoState>(gameStateProvider, (previous, current) {
       // Se recebeu um estado de jogo válido com 2 jogadores, pode iniciar placement
-      if (current.estadoJogo != null &&
+      if (!_hasNavigated &&
+          current.estadoJogo != null &&
           current.estadoJogo!.jogadores.length >= 2 &&
           current.statusConexao == StatusConexao.jogando) {
+        debugPrint('🚀 MatchmakingScreen: Navegando para GameFlowScreen');
+        _hasNavigated = true;
         // Navega para o placement
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const GameFlowScreen()),

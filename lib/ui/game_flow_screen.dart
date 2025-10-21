@@ -43,6 +43,15 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
       return;
     }
 
+    // Verifica se o placement já foi inicializado no provider
+    final placementState = ref.read(placementStateProvider);
+    if (placementState.placementState != null) {
+      debugPrint('🔍 Placement já existe no provider, ignorando');
+      _hasInitialized = true;
+      _placementState = placementState.placementState;
+      return;
+    }
+
     _hasInitialized = true;
     debugPrint('🔍 Marcando como inicializado');
     final currentGameState = ref.read(gameStateProvider);
@@ -115,6 +124,14 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
 
     if (_currentPhase != GameFlowPhase.placement || _placementState != null) {
       debugPrint('🔄 Placement já foi iniciado ou fase incorreta, ignorando');
+      return;
+    }
+
+    // Verifica se já existe no provider
+    final existingPlacement = ref.read(placementStateProvider);
+    if (existingPlacement.placementState != null) {
+      debugPrint('🔄 Placement já existe no provider, reutilizando');
+      _placementState = existingPlacement.placementState;
       return;
     }
 
