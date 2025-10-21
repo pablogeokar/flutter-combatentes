@@ -454,18 +454,6 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
           isGameStarting: _controller.isGameStarting,
           countdownSeconds: _controller.countdownSeconds,
         ),
-
-        // Botão de teste para simular oponente (apenas quando aguardando)
-        if (state.localStatus == PlacementStatus.waiting)
-          Padding(
-            padding: const EdgeInsets.only(top: 16.0),
-            child: MilitaryThemeWidgets.militaryButton(
-              text: '🤖 Simular Oponente Pronto',
-              onPressed: () => _controller.simulateOpponentReady(),
-              icon: Icons.smart_toy,
-              backgroundColor: Colors.orange,
-            ),
-          ),
       ],
     );
   }

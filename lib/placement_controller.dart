@@ -69,6 +69,16 @@ class PlacementController extends ChangeNotifier {
       },
     );
 
+    // Escuta mensagens de placement do servidor
+    _socketService.streamDePlacement.listen(
+      (message) {
+        _handlePlacementMessage(message);
+      },
+      onError: (error) {
+        debugPrint('Erro no stream de placement: $error');
+      },
+    );
+
     // Inicia watchdog de conexão com delay para dar tempo de inicialização
     Future.delayed(const Duration(seconds: 30), () {
       if (!_isReconnecting) {
@@ -365,9 +375,6 @@ class PlacementController extends ChangeNotifier {
         debugPrint(
           'PlacementController: Aguardando oponente via coordenador de múltiplas instâncias...',
         );
-
-        // SIMULAÇÃO DE OPONENTE PARA TESTE (remove quando tiver servidor real)
-        // _simulateOpponentAfterDelay(); // COMENTADO: Aguarda ambos jogadores ficarem prontos
       }
     } catch (e) {
       // Reverte status em caso de erro
@@ -393,18 +400,16 @@ class PlacementController extends ChangeNotifier {
 
   /// Envia mensagem para o servidor com timeout.
   Future<void> _sendMessageWithTimeout(PlacementMessage message) async {
-    // TODO: Implementar envio real quando GameSocketService suportar
-    // Por enquanto, simula envio com possível timeout
-
     debugPrint('Enviando mensagem de placement: ${message.toJson()}');
 
-    // Simula delay de rede
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    // Simula possível timeout (para teste)
-    // if (Random().nextBool()) {
-    //   throw TimeoutException('Server timeout', const Duration(seconds: 30));
-    // }
+    try {
+      // Envia mensagem real para o servidor
+      _socketService.enviarMensagemPlacement(message.toJson());
+      debugPrint('✅ Mensagem de placement enviada com sucesso');
+    } catch (e) {
+      debugPrint('❌ Erro ao enviar mensagem de placement: $e');
+      throw Exception('Erro ao comunicar com servidor: $e');
+    }
   }
 
   /// Inicia o countdown para início do jogo.
@@ -536,30 +541,6 @@ class PlacementController extends ChangeNotifier {
   }
 
   /// Manipula mensagem de início do jogo.
-  // TODO: Reativar quando o servidor suportar mensagens de placement
-  // ignore: unused_element
-  void _handleGameStartMessage(Map<String, dynamic> message) {
-    if (_currentState == null) return;
-
-    // Para o countdown se estiver rodando
-    _countdownTimer?.cancel();
-    _isGameStarting = false;
-
-    // Atualiza fase do jogo
-    final gameStartState = PlacementGameState(
-      gameId: _currentState!.gameId,
-      playerId: _currentState!.playerId,
-      availablePieces: _currentState!.availablePieces,
-      placedPieces: _currentState!.placedPieces,
-      playerArea: _currentState!.playerArea,
-      localStatus: _currentState!.localStatus,
-      opponentStatus: _currentState!.opponentStatus,
-      selectedPieceType: _currentState!.selectedPieceType,
-      gamePhase: GamePhase.gameInProgress,
-    );
-
-    updateState(gameStartState);
-  }
 
   /// Valida uma operação de posicionamento de peça.
   PlacementResult<void> validatePiecePlacement({
@@ -1009,12 +990,31 @@ class PlacementController extends ChangeNotifier {
     _lastNetworkActivity = DateTime.now();
   }
 
-  /// Simula o oponente ficando pronto (para teste/desenvolvimento).
-  /// TODO: Remover quando integração real com servidor estiver funcionando.
-  void simulateOpponentReady() {
+  /// Processa mensagens de placement recebidas do servidor.
+  void _handlePlacementMessage(Map<String, dynamic> message) {
+    final type = message['type'] as String?;
+    debugPrint('📨 Processando mensagem de placement: $type');
+
+    switch (type) {
+      case 'PLACEMENT_OPPONENT_READY':
+        _handleOpponentReadyMessage(message);
+        break;
+      case 'PLACEMENT_GAME_START':
+        _handleGameStartMessage(message);
+        break;
+      case 'PLACEMENT_UPDATE':
+        _handlePlacementUpdateMessage(message);
+        break;
+      default:
+        debugPrint('⚠️ Tipo de mensagem de placement desconhecido: $type');
+    }
+  }
+
+  /// Processa mensagem de oponente pronto.
+  void _handleOpponentReadyMessage(Map<String, dynamic> message) {
     if (_currentState == null) return;
 
-    debugPrint('PlacementController: Simulando oponente ficando pronto...');
+    debugPrint('🎯 Oponente ficou pronto!');
 
     final updatedState = PlacementGameState(
       gameId: _currentState!.gameId,
@@ -1022,13 +1022,50 @@ class PlacementController extends ChangeNotifier {
       availablePieces: _currentState!.availablePieces,
       placedPieces: _currentState!.placedPieces,
       playerArea: _currentState!.playerArea,
-      localStatus: PlacementStatus.ready, // Ambos prontos
+      localStatus: _currentState!.localStatus,
       opponentStatus: PlacementStatus.ready,
       selectedPieceType: _currentState!.selectedPieceType,
       gamePhase: _currentState!.gamePhase,
     );
 
     updateState(updatedState);
+
+    // Se jogador local também está pronto, inicia countdown
+    if (_currentState!.localStatus == PlacementStatus.ready) {
+      _startGameCountdown();
+    }
+  }
+
+  /// Processa mensagem de início do jogo.
+  void _handleGameStartMessage(Map<String, dynamic> message) {
+    if (_currentState == null) return;
+
+    debugPrint('🎮 Servidor iniciou o jogo!');
+
+    // Para o countdown se estiver rodando
+    _countdownTimer?.cancel();
+    _isGameStarting = false;
+
+    // Atualiza fase do jogo
+    final gameStartState = PlacementGameState(
+      gameId: _currentState!.gameId,
+      playerId: _currentState!.playerId,
+      availablePieces: _currentState!.availablePieces,
+      placedPieces: _currentState!.placedPieces,
+      playerArea: _currentState!.playerArea,
+      localStatus: PlacementStatus.ready,
+      opponentStatus: PlacementStatus.ready,
+      selectedPieceType: _currentState!.selectedPieceType,
+      gamePhase: GamePhase.gameInProgress,
+    );
+
+    updateState(gameStartState);
+  }
+
+  /// Processa atualizações gerais de placement.
+  void _handlePlacementUpdateMessage(Map<String, dynamic> message) {
+    debugPrint('📝 Atualização de placement recebida');
+    // Implementar conforme necessário
   }
 
   /// Força uma tentativa manual de reconexão.
@@ -1082,33 +1119,6 @@ class PlacementController extends ChangeNotifier {
       notifyListeners();
       return false;
     }
-  }
-
-  /// Simula um oponente ficando pronto após um delay (para testes).
-  /// REMOVER quando tiver servidor real.
-  void _simulateOpponentAfterDelay() {
-    Timer(const Duration(seconds: 3), () {
-      if (_currentState != null &&
-          _currentState!.localStatus == PlacementStatus.waiting &&
-          _currentState!.opponentStatus != PlacementStatus.ready) {
-        debugPrint('🤖 SIMULAÇÃO: Oponente ficou pronto!');
-
-        // Simula oponente ficando pronto
-        final simulatedState = PlacementGameState(
-          gameId: _currentState!.gameId,
-          playerId: _currentState!.playerId,
-          availablePieces: _currentState!.availablePieces,
-          placedPieces: _currentState!.placedPieces,
-          playerArea: _currentState!.playerArea,
-          localStatus: PlacementStatus.ready,
-          opponentStatus: PlacementStatus.ready,
-          selectedPieceType: _currentState!.selectedPieceType,
-          gamePhase: _currentState!.gamePhase,
-        );
-
-        updateState(simulatedState);
-      }
-    });
   }
 
   @override

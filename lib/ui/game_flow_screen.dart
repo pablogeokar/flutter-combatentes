@@ -198,18 +198,29 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
     PlacementScreenState? previous,
     PlacementScreenState current,
   ) {
+    debugPrint('🔄 _handlePlacementStateChange chamado');
+    debugPrint('🔄 shouldNavigateToGame: ${current.shouldNavigateToGame}');
+    debugPrint('🔄 currentPhase: $_currentPhase');
+    debugPrint(
+      '🔄 placementState gamePhase: ${current.placementState?.gamePhase}',
+    );
+
     if (current.shouldNavigateToGame &&
         _currentPhase == GameFlowPhase.placement) {
+      debugPrint('🔄 Iniciando transição para o jogo!');
       _startGamePhase();
     }
   }
 
   void _startGamePhase() {
+    debugPrint('🎮 _startGamePhase iniciado');
     _transferPlacedPiecesToGame();
     setState(() {
       _currentPhase = GameFlowPhase.game;
     });
+    debugPrint('🎮 Fase alterada para GameFlowPhase.game');
     ref.read(placementStateProvider.notifier).resetToGame();
+    debugPrint('🎮 Placement provider resetado');
   }
 
   Future<void> _transferPlacedPiecesToGame() async {

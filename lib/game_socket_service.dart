@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import './modelos_jogo.dart';
@@ -12,6 +13,8 @@ class GameSocketService {
   final _estadoController = StreamController<EstadoJogo>.broadcast();
   final _erroController = StreamController<String>.broadcast();
   final _statusController = StreamController<StatusConexao>.broadcast();
+  final _placementController =
+      StreamController<Map<String, dynamic>>.broadcast();
   Timer? _connectionTimeout;
   bool _isConnecting = false;
   bool _isConnected = false;
@@ -24,6 +27,10 @@ class GameSocketService {
 
   /// Stream que emite o status da conexão.
   Stream<StatusConexao> get streamDeStatus => _statusController.stream;
+
+  /// Stream que emite mensagens de placement recebidas do servidor.
+  Stream<Map<String, dynamic>> get streamDePlacement =>
+      _placementController.stream;
 
   /// Conecta-se ao servidor WebSocket e começa a ouvir por mensagens.
   void connect(String url, {String? nomeUsuario}) {
@@ -102,6 +109,12 @@ class GameSocketService {
                 final mensagem =
                     data['data']?['message'] ?? 'Oponente abandonou o jogo';
                 _erroController.add(mensagem);
+              } else if (type == 'PLACEMENT_UPDATE' ||
+                  type == 'PLACEMENT_OPPONENT_READY' ||
+                  type == 'PLACEMENT_GAME_START') {
+                // Processa mensagens de placement
+                debugPrint('📨 Mensagem de placement recebida: $type');
+                _placementController.add(data);
               } else if (type == 'mensagemServidor') {
                 final mensagem = data['payload'].toString();
 
@@ -304,5 +317,6 @@ class GameSocketService {
     _estadoController.close();
     _erroController.close();
     _statusController.close();
+    _placementController.close();
   }
 }
