@@ -404,8 +404,20 @@ export class WebSocketMessageHandler {
         return;
       }
 
+      // Update player state with pieces from message if provided
+      let updatedPlayerState = playerState;
+      if (message.data?.allPieces && message.data.allPieces.length > 0) {
+        console.log(`🎯 Atualizando estado com ${message.data.allPieces.length} peças recebidas`);
+        updatedPlayerState = {
+          ...playerState,
+          placedPieces: message.data.allPieces,
+        };
+        // Update the stored state
+        gameStates.set(clientId, updatedPlayerState);
+      }
+
       // Confirm placement with comprehensive validation
-      const result = placementManager.confirmPlacement(playerState, context);
+      const result = placementManager.confirmPlacement(updatedPlayerState, context);
 
       if (!result.success || !result.data) {
         this.sendPlacementErrorDetails(ws, result.error!);
