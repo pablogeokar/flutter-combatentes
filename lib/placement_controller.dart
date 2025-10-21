@@ -800,7 +800,7 @@ class PlacementController extends ChangeNotifier {
 
     try {
       // TODO: Obter URL do servidor de configuração
-      const serverUrl = 'ws://localhost:8083'; // Placeholder
+      const serverUrl = 'wss://flutter-combatentes.onrender.com'; // Placeholder
 
       // TODO: Obter nome do usuário de UserPreferences
       // final userName = await UserPreferences.getUserName();
@@ -1094,7 +1094,7 @@ class PlacementController extends ChangeNotifier {
 
     try {
       // TODO: Obter URL do servidor de configuração
-      const serverUrl = 'ws://localhost:8083'; // Placeholder
+      const serverUrl = 'wss://flutter-combatentes.onrender.com'; // Placeholder
 
       // TODO: Obter nome do usuário de UserPreferences
       // final userName = await UserPreferences.getUserName();

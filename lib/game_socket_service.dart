@@ -146,12 +146,16 @@ class GameSocketService {
 
         // Envia o nome do usuário assim que conecta
         if (nomeUsuario != null) {
+          debugPrint('🏷️ Enviando nome do usuário: $nomeUsuario');
           Future.delayed(const Duration(milliseconds: 150), () {
             _sendMessage({
               'type': 'definirNome',
               'payload': {'nome': nomeUsuario},
             });
+            debugPrint('✅ Mensagem definirNome enviada');
           });
+        } else {
+          debugPrint('⚠️ Nome do usuário é null, não enviando');
         }
       },
       (error, stackTrace) {
@@ -198,9 +202,17 @@ class GameSocketService {
   void _sendMessage(Map<String, dynamic> message) {
     try {
       if (_channel != null && _isConnected) {
-        _channel!.sink.add(jsonEncode(message));
+        final messageJson = jsonEncode(message);
+        debugPrint('📤 Enviando mensagem: $messageJson');
+        _channel!.sink.add(messageJson);
+        debugPrint('✅ Mensagem enviada com sucesso');
+      } else {
+        debugPrint(
+          '❌ Não foi possível enviar mensagem - canal: ${_channel != null}, conectado: $_isConnected',
+        );
       }
     } catch (e) {
+      debugPrint('❌ Erro ao enviar mensagem: $e');
       _erroController.add('Erro ao enviar dados para o servidor.');
     }
   }

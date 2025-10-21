@@ -53,11 +53,16 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       final nomeUsuario = await UserPreferences.getUserName();
       final serverAddress = await UserPreferences.getServerAddress();
 
+      debugPrint('🔍 Nome obtido das preferências: $nomeUsuario');
+      debugPrint('🔍 Endereço do servidor: $serverAddress');
+
       if (nomeUsuario == null) {
+        debugPrint('❌ Nome é null, navegando para tela de nome');
         _navigateToNameScreen();
         return;
       }
 
+      debugPrint('✅ Conectando ao servidor com nome: $nomeUsuario');
       // Conecta ao servidor
       ref
           .read(gameStateProvider.notifier)

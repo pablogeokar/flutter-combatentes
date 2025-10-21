@@ -27,7 +27,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
       final currentServer = await UserPreferences.getServerAddress();
       _serverController.text = currentServer;
     } catch (e) {
-      _serverController.text = 'ws://localhost:8083';
+      _serverController.text = 'wss://flutter-combatentes.onrender.com';
     } finally {
       setState(() => _isLoading = false);
     }
@@ -85,7 +85,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
   }
 
   void _resetToDefault() {
-    _serverController.text = 'ws://localhost:8083';
+    _serverController.text = 'wss://flutter-combatentes.onrender.com';
   }
 
   @override
@@ -222,7 +222,8 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                               ),
                               decoration: InputDecoration(
                                 labelText: 'Endereço do Servidor',
-                                hintText: 'ws://localhost:8083',
+                                hintText:
+                                    'wss://flutter-combatentes.onrender.com',
                                 prefixIcon: Icon(
                                   Icons.dns,
                                   color: MilitaryThemeWidgets.primaryGreen,
@@ -273,7 +274,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                             TextButton.icon(
                               onPressed: _resetToDefault,
                               icon: const Icon(Icons.refresh, size: 18),
-                              label: const Text('Usar Padrão (localhost:8083)'),
+                              label: const Text('Usar Padrão (Render.com)'),
                               style: TextButton.styleFrom(
                                 foregroundColor:
                                     MilitaryThemeWidgets.primaryGreen,
@@ -312,9 +313,9 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                                   ),
                                   const SizedBox(height: 8),
                                   const Text(
+                                    '• wss://flutter-combatentes.onrender.com (padrão)\n'
                                     '• ws://localhost:8083 (local)\n'
-                                    '• ws://192.168.1.100:8083 (rede local)\n'
-                                    '• wss://meuservidor.com:8083 (internet)',
+                                    '• ws://192.168.1.100:8083 (rede local)',
                                     style: TextStyle(fontSize: 13),
                                   ),
                                 ],
