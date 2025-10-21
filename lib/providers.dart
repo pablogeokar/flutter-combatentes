@@ -339,6 +339,16 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
     state = state.copyWith(limparErro: true);
   }
 
+  /// Atualiza o estado do jogo (usado para transferir peças do placement)
+  void updateGameState(EstadoJogo novoEstado) {
+    state = state.copyWith(
+      estadoJogo: novoEstado,
+      conectando: false,
+      statusConexao: StatusConexao.jogando,
+      limparErro: true,
+    );
+  }
+
   /// Tenta reconectar ao servidor
   void reconnect() {
     _reconnectAsync();

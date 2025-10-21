@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../modelos_jogo.dart';
 import '../placement_controller.dart';
 import '../placement_error_handler.dart';
@@ -141,6 +143,10 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
       debugPrint(
         'PiecePlacementScreen: Jogo deve iniciar! Chamando onGameStart callback',
       );
+
+      // IMPORTANTE: Salva as peças ANTES de chamar onGameStart
+      _savePlacedPiecesForTransfer();
+
       widget.onGameStart?.call();
     }
 
@@ -711,5 +717,44 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
         _showExitDialog = false;
       });
     });
+  }
+
+  /// Salva as peças posicionadas para transferência posterior.
+  void _savePlacedPiecesForTransfer() {
+    final currentState = _controller.currentState;
+    if (currentState?.placedPieces.isNotEmpty == true) {
+      debugPrint(
+        '💾 Salvando ${currentState!.placedPieces.length} peças para transferência',
+      );
+
+      // Salva no SharedPreferences para transferência
+      _savePiecesToStorage(
+        currentState.placedPieces,
+        currentState.gameId,
+        currentState.playerId,
+      );
+    }
+  }
+
+  /// Salva as peças no armazenamento local para transferência.
+  void _savePiecesToStorage(
+    List<PecaJogo> pieces,
+    String gameId,
+    String playerId,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = {
+        'gameId': gameId,
+        'playerId': playerId,
+        'pieces': pieces.map((p) => p.toJson()).toList(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      await prefs.setString('placed_pieces_for_transfer', jsonEncode(data));
+      debugPrint('💾 Peças salvas no armazenamento para transferência');
+    } catch (e) {
+      debugPrint('❌ Erro ao salvar peças: $e');
+    }
   }
 }
