@@ -97,8 +97,11 @@ pnpm run start
 // Key components for reliable WebSocket communication
 class GameSocketService {
   Timer? _nameVerificationTimer;     // Periodic name confirmation check
+  Timer? _heartbeatTimer;           // Connection health monitoring
   bool _nameConfirmed = false;       // Server name confirmation tracking
   String? _pendingUserName;          // Name awaiting confirmation
+  bool _isInPlacementPhase = true;   // Game phase tracking for dynamic timeouts
+  DateTime? _lastMessageReceived;    // Heartbeat timestamp tracking
   
   // Multi-attempt name sending with exponential backoff
   void _enviarNomeComRetry(String nome, int tentativa);
@@ -108,8 +111,25 @@ class GameSocketService {
   
   // Periodic verification of name confirmation
   void _startNameVerificationTimer(String nomeUsuario);
+  
+  // Dynamic timeout based on game phase
+  int _getHeartbeatTimeout() {
+    return _isInPlacementPhase ? 300 : 60; // 5min vs 1min
+  }
+  
+  // Phase control methods
+  void setPlacementPhase(bool isPlacement);
+  void forceGamePhase();
+  void forcePlacementPhase();
 }
 ```
+
+### Dynamic Timeout System Architecture
+
+- **Phase-Aware Heartbeat**: Different timeout values for placement (5min) vs gameplay (1min)
+- **Automatic Phase Detection**: Server message analysis to determine current game phase
+- **Intelligent Reconnection**: Proper phase restoration during connection recovery
+- **Enhanced Debugging**: Comprehensive logging with phase and timeout information
 
 ## Animation System
 

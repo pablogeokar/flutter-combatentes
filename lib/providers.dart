@@ -355,6 +355,10 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
       limparErro: true,
     );
 
+    // Quando recebe estado do jogo, significa que saiu do posicionamento
+    final socketService = _ref.read(gameSocketProvider);
+    socketService.forceGamePhase();
+
     debugPrint(
       '🎮 Estado atualizado - Total de peças no estado: ${state.estadoJogo?.pecas.length ?? 0}',
     );
@@ -835,17 +839,46 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
 
   /// Volta para o estado de aguardando oponente após desconexão
   void voltarParaAguardandoOponente() {
-    // Limpa o estado atual e reconecta
+    debugPrint('🔄 Voltando para aguardando oponente...');
+
+    // Limpa completamente o estado do jogo
     state = state.copyWith(
       estadoJogo: null,
       limparSelecao: true,
       limparErro: true,
+      limparCombate: true,
+      limparMovimento: true,
       conectando: true,
       statusConexao: StatusConexao.conectando,
     );
 
+    // Força reset do socket service e volta para fase de posicionamento
+    final socketService = _ref.read(gameSocketProvider);
+    socketService.resetNameConfirmation();
+    socketService.forcePlacementPhase();
+
     // Reconecta ao servidor
     _reconnectAsync();
+  }
+
+  /// Força navegação de volta para matchmaking (usado em casos críticos)
+  void forcarVoltaParaMatchmaking() {
+    debugPrint('🚨 Forçando volta para matchmaking...');
+
+    // Limpa completamente o estado
+    state = state.copyWith(
+      estadoJogo: null,
+      limparSelecao: true,
+      limparErro: true,
+      limparCombate: true,
+      limparMovimento: true,
+      conectando: false,
+      statusConexao: StatusConexao.desconectado,
+    );
+
+    // Força volta para fase de posicionamento
+    final socketService = _ref.read(gameSocketProvider);
+    socketService.forcePlacementPhase();
   }
 
   Future<void> _reconnectAsync() async {

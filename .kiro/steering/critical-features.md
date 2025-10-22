@@ -54,6 +54,32 @@ This document outlines the most important features and bug fixes that are essent
 - Improved error handling and logging throughout the connection process
 - MatchmakingScreen now monitors connection state and triggers corrective actions
 
+### Dynamic Timeout System for Game Phases (October 2025)
+
+**Problem**: Fixed 60-second timeout causing false disconnections during piece placement phase
+**Root Cause**: Players need different amounts of time for strategic thinking vs active gameplay
+
+**Solution**: Intelligent phase-based timeout system
+
+- **Placement Phase Timeout**: 5 minutes (300 seconds) for strategic piece positioning
+- **Active Game Timeout**: 60 seconds for responsive gameplay during matches
+- **Automatic Phase Detection**: System detects game phase from server messages
+- **Immediate Disconnection Response**: Real server disconnections processed instantly
+- **Smart Phase Transitions**: Automatic switching between phases based on game state
+
+**Technical Implementation**:
+- `_isInPlacementPhase` boolean flag with dynamic timeout calculation
+- `_getHeartbeatTimeout()` returns appropriate timeout based on current phase
+- `setPlacementPhase()`, `forceGamePhase()`, `forcePlacementPhase()` for phase control
+- Enhanced message processing to detect `PLACEMENT_*` and `atualizacaoEstado` messages
+- Integration with providers for automatic phase management during reconnections
+
+**User Experience Improvements**:
+- Loading screen shows "5 minutes for placement" information
+- No more false disconnections during strategic thinking
+- Maintains responsiveness during active gameplay
+- Clear visual feedback about available time
+
 ## 🚀 Essential Features
 
 ### Connection Status System

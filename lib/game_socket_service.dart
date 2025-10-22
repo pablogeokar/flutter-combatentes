@@ -17,10 +17,13 @@ class GameSocketService {
       StreamController<Map<String, dynamic>>.broadcast();
   Timer? _connectionTimeout;
   Timer? _nameVerificationTimer;
+  Timer? _heartbeatTimer;
   bool _isConnecting = false;
   bool _isConnected = false;
   bool _nameConfirmed = false;
   String? _pendingUserName;
+  DateTime? _lastMessageReceived;
+  bool _isInPlacementPhase = true; // Controla se está na fase de posicionamento
 
   /// Stream que emite o [EstadoJogo] mais recente recebido do servidor.
   Stream<EstadoJogo> get streamDeEstados => _estadoController.stream;
@@ -94,7 +97,13 @@ class GameSocketService {
                   'payload': {'nome': nomeUsuario},
                 });
               }
+
+              // Inicia monitoramento de heartbeat
+              _startHeartbeatMonitoring();
             }
+
+            // Atualiza timestamp da última mensagem recebida
+            _lastMessageReceived = DateTime.now();
 
             try {
               final data = jsonDecode(message);
@@ -119,7 +128,13 @@ class GameSocketService {
               if (type == 'atualizacaoEstado') {
                 final estado = EstadoJogo.fromJson(data['payload']);
                 _estadoController.add(estado);
-                // Quando recebe estado do jogo, significa que está jogando
+                // Quando recebe estado do jogo, significa que saiu do posicionamento
+                if (_isInPlacementPhase) {
+                  debugPrint(
+                    '🎯 Detectada mudança para fase de jogo via atualizacaoEstado',
+                  );
+                  setPlacementPhase(false);
+                }
                 _statusController.add(StatusConexao.jogando);
               } else if (type == 'erroMovimento') {
                 final erro =
@@ -146,6 +161,21 @@ class GameSocketService {
                   type == 'PLACEMENT_GAME_START') {
                 // Processa mensagens de placement
                 debugPrint('📨 Mensagem de placement recebida: $type');
+
+                // Garante que está na fase de posicionamento
+                if (!_isInPlacementPhase && type != 'PLACEMENT_GAME_START') {
+                  debugPrint('🎯 Detectada volta para fase de posicionamento');
+                  setPlacementPhase(true);
+                }
+
+                // PLACEMENT_GAME_START indica fim do posicionamento
+                if (type == 'PLACEMENT_GAME_START') {
+                  debugPrint(
+                    '🎯 Detectado fim do posicionamento via PLACEMENT_GAME_START',
+                  );
+                  setPlacementPhase(false);
+                }
+
                 _placementController.add(data);
               } else if (type == 'nomeDefinido' || type == 'nomeAtualizado') {
                 debugPrint('✅ Confirmação de nome recebida do servidor');
@@ -158,13 +188,37 @@ class GameSocketService {
                     '✅ Nome confirmado pelo servidor: $nomeConfirmado',
                   );
                 }
+              } else if (type == 'OPPONENT_DISCONNECTED' ||
+                  type == 'GAME_OPPONENT_DISCONNECTED' ||
+                  type == 'oponenteDesconectou') {
+                debugPrint('🚨 Oponente desconectou durante o jogo');
+                _statusController.add(StatusConexao.oponenteDesconectado);
+                final mensagem =
+                    data['data']?['message'] ??
+                    data['payload']?['mensagem'] ??
+                    'Seu oponente saiu da partida';
+                _erroController.add(mensagem);
+              } else if (type == 'GAME_ABANDONED' || type == 'jogoAbandonado') {
+                debugPrint('🚨 Jogo foi abandonado pelo oponente');
+                _statusController.add(StatusConexao.oponenteDesconectado);
+                final mensagem =
+                    data['data']?['message'] ??
+                    data['payload']?['mensagem'] ??
+                    'O jogo foi abandonado pelo oponente';
+                _erroController.add(mensagem);
               } else if (type == 'mensagemServidor') {
                 final mensagem = data['payload'].toString();
                 debugPrint('📢 Mensagem do servidor: $mensagem');
 
                 // Verifica se o oponente desconectou
                 if (mensagem.contains('oponente desconectou') ||
-                    mensagem.contains('O oponente desconectou')) {
+                    mensagem.contains('O oponente desconectou') ||
+                    mensagem.contains('opponent disconnected') ||
+                    mensagem.contains('abandonou') ||
+                    mensagem.contains('saiu da partida')) {
+                  debugPrint(
+                    '🚨 Desconexão detectada via mensagem do servidor',
+                  );
                   _statusController.add(StatusConexao.oponenteDesconectado);
                   _erroController.add('O oponente saiu da partida.');
                 }
@@ -348,6 +402,7 @@ class GameSocketService {
     // Cancela timeouts anteriores
     _connectionTimeout?.cancel();
     _nameVerificationTimer?.cancel();
+    _heartbeatTimer?.cancel();
     _isConnecting = false;
 
     // Reseta estado de confirmação
@@ -374,11 +429,13 @@ class GameSocketService {
     String url, {
     String? nomeUsuario,
   }) async {
+    debugPrint('🔄 Iniciando reconexão durante posicionamento...');
+
     try {
       // Emite status de reconectando
       _statusController.add(StatusConexao.conectando);
 
-      // Fecha conexão atual
+      // Limpa estado anterior mas preserva informações de posicionamento
       try {
         _channel?.sink.close();
       } catch (e) {
@@ -388,38 +445,72 @@ class GameSocketService {
       _channel = null;
       _isConnecting = false;
       _isConnected = false;
+      _nameConfirmed = false;
+
+      // Força fase de posicionamento para reconexão
+      _isInPlacementPhase = true;
+      debugPrint('🎯 Forçando fase de posicionamento para reconexão');
 
       // Aguarda um pouco antes de reconectar
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 1000));
 
       // Tenta reconectar
       connect(url, nomeUsuario: nomeUsuario);
 
-      // Aguarda conexão ou timeout
+      // Aguarda conexão, nome confirmado ou timeout
       final completer = Completer<bool>();
-      late StreamSubscription subscription;
+      late StreamSubscription statusSubscription;
+      late StreamSubscription placementSubscription;
 
-      subscription = streamDeStatus.listen((status) {
-        if (status == StatusConexao.conectado ||
-            status == StatusConexao.jogando) {
-          subscription.cancel();
+      // Escuta mudanças de status
+      statusSubscription = streamDeStatus.listen((status) {
+        debugPrint('🔄 Status durante reconexão: $status');
+
+        if (status == StatusConexao.conectado && _nameConfirmed) {
+          debugPrint('✅ Reconexão bem-sucedida - conectado e nome confirmado');
+          statusSubscription.cancel();
+          placementSubscription.cancel();
           completer.complete(true);
         } else if (status == StatusConexao.erro) {
-          subscription.cancel();
+          debugPrint('❌ Erro durante reconexão');
+          statusSubscription.cancel();
+          placementSubscription.cancel();
           completer.complete(false);
         }
       });
 
-      // Timeout de 10 segundos para reconexão
-      Timer(const Duration(seconds: 10), () {
+      // Escuta mensagens de placement para confirmar reconexão à sessão
+      placementSubscription = streamDePlacement.listen((data) {
+        debugPrint(
+          '📨 Mensagem de placement recebida durante reconexão: ${data['type']}',
+        );
+
+        // Se recebeu mensagem de placement, significa que reconectou à sessão
+        if (data['type'] == 'PLACEMENT_UPDATE' ||
+            data['type'] == 'PLACEMENT_OPPONENT_READY' ||
+            data['type'] == 'PLACEMENT_GAME_START') {
+          debugPrint('✅ Reconexão à sessão de posicionamento confirmada');
+          statusSubscription.cancel();
+          placementSubscription.cancel();
+          completer.complete(true);
+        }
+      });
+
+      // Timeout de 15 segundos para reconexão (mais tempo para posicionamento)
+      Timer(const Duration(seconds: 15), () {
         if (!completer.isCompleted) {
-          subscription.cancel();
+          debugPrint('⏰ Timeout na reconexão durante posicionamento');
+          statusSubscription.cancel();
+          placementSubscription.cancel();
           completer.complete(false);
         }
       });
 
-      return await completer.future;
+      final result = await completer.future;
+      debugPrint('🔄 Resultado da reconexão: $result');
+      return result;
     } catch (e) {
+      debugPrint('❌ Erro na reconexão durante posicionamento: $e');
       _statusController.add(StatusConexao.erro);
       return false;
     }
@@ -455,6 +546,8 @@ class GameSocketService {
     debugPrint('🔄 Resetando estado de confirmação do nome');
     _nameConfirmed = false;
     _nameVerificationTimer?.cancel();
+    // Volta para fase de posicionamento em reconexões
+    _isInPlacementPhase = true;
   }
 
   /// Obtém informações completas sobre o status da conexão
@@ -469,6 +562,8 @@ class GameSocketService {
           _nameVerificationTimer != null && _nameVerificationTimer!.isActive,
       'hasConnectionTimer':
           _connectionTimeout != null && _connectionTimeout!.isActive,
+      'isInPlacementPhase': _isInPlacementPhase,
+      'heartbeatTimeout': _getHeartbeatTimeout(),
     };
   }
 
@@ -521,6 +616,81 @@ class GameSocketService {
     });
   }
 
+  /// Inicia monitoramento de heartbeat para detectar desconexões silenciosas
+  void _startHeartbeatMonitoring() {
+    _heartbeatTimer?.cancel();
+
+    // Verifica a cada 30 segundos se recebemos mensagens recentemente
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_lastMessageReceived != null) {
+        final timeSinceLastMessage = DateTime.now().difference(
+          _lastMessageReceived!,
+        );
+
+        // Timeout dinâmico baseado na fase do jogo
+        final timeoutSeconds = _getHeartbeatTimeout();
+
+        if (timeSinceLastMessage.inSeconds > timeoutSeconds) {
+          final phase = _isInPlacementPhase ? 'posicionamento' : 'jogo';
+          debugPrint(
+            '💔 Heartbeat timeout ($phase) - sem mensagens por ${timeSinceLastMessage.inSeconds}s (limite: ${timeoutSeconds}s)',
+          );
+          _handleConnectionError('Conexão perdida com o servidor');
+          timer.cancel();
+        } else {
+          // Log periódico para debug (apenas a cada 2 minutos para não poluir)
+          if (timeSinceLastMessage.inSeconds % 120 == 0 &&
+              timeSinceLastMessage.inSeconds > 0) {
+            debugPrint(
+              '💓 Heartbeat OK - última mensagem há ${timeSinceLastMessage.inSeconds}s (limite: ${timeoutSeconds}s)',
+            );
+          }
+        }
+      }
+    });
+  }
+
+  /// Retorna o timeout apropriado baseado na fase do jogo
+  int _getHeartbeatTimeout() {
+    if (_isInPlacementPhase) {
+      // 5 minutos durante posicionamento - jogadores precisam de tempo para estratégia
+      return 300; // 5 * 60 segundos
+    } else {
+      // 60 segundos durante jogo ativo - mais responsivo
+      return 60;
+    }
+  }
+
+  /// Define se está na fase de posicionamento (timeout mais longo)
+  void setPlacementPhase(bool isPlacement) {
+    if (_isInPlacementPhase != isPlacement) {
+      _isInPlacementPhase = isPlacement;
+      final phase = isPlacement ? 'posicionamento' : 'jogo';
+      final timeout = _getHeartbeatTimeout();
+      debugPrint('🎯 Mudança de fase: $phase (timeout: ${timeout}s)');
+
+      // Reinicia o heartbeat com o novo timeout
+      if (_isConnected) {
+        _startHeartbeatMonitoring();
+      }
+    }
+  }
+
+  /// Verifica se está na fase de posicionamento
+  bool get isInPlacementPhase => _isInPlacementPhase;
+
+  /// Força mudança para fase de jogo (usado quando detectamos início do jogo)
+  void forceGamePhase() {
+    debugPrint('🎯 Forçando mudança para fase de jogo');
+    setPlacementPhase(false);
+  }
+
+  /// Força mudança para fase de posicionamento (usado em reconexões)
+  void forcePlacementPhase() {
+    debugPrint('🎯 Forçando mudança para fase de posicionamento');
+    setPlacementPhase(true);
+  }
+
   /// Imprime status detalhado da conexão para debug
   void printConnectionDebugInfo() {
     final status = getConnectionStatus();
@@ -532,6 +702,11 @@ class GameSocketService {
     debugPrint('🔍 Tem canal: ${status['hasChannel']}');
     debugPrint('🔍 Timer de nome ativo: ${status['hasNameTimer']}');
     debugPrint('🔍 Timer de conexão ativo: ${status['hasConnectionTimer']}');
+    debugPrint('🔍 Fase de posicionamento: ${status['isInPlacementPhase']}');
+    debugPrint('🔍 Timeout heartbeat: ${status['heartbeatTimeout']}s');
+    debugPrint(
+      '🔍 Última mensagem: ${_lastMessageReceived?.toString() ?? 'Nunca'}',
+    );
     debugPrint('🔍 ========================');
   }
 
@@ -539,6 +714,7 @@ class GameSocketService {
   void dispose() {
     _connectionTimeout?.cancel();
     _nameVerificationTimer?.cancel();
+    _heartbeatTimer?.cancel();
     _isConnecting = false;
 
     try {

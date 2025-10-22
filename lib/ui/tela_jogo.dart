@@ -12,6 +12,8 @@ import './blood_splatter_widget.dart';
 import './audio_settings_dialog.dart';
 import './victory_defeat_screens.dart';
 import './server_config_dialog.dart';
+import './matchmaking_screen.dart';
+import './military_theme_widgets.dart';
 
 /// A tela principal do jogo, agora como um ConsumerStatefulWidget que reage às mudanças de estado do Riverpod.
 class TelaJogo extends ConsumerStatefulWidget {
@@ -828,20 +830,21 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
           ],
         ),
         actions: [
-          ElevatedButton.icon(
+          MilitaryThemeWidgets.militaryButton(
+            text: 'Procurar Novo Oponente',
+            icon: Icons.refresh,
             onPressed: () {
               Navigator.of(context).pop();
-              // Volta para o estado de aguardando oponente
-              ref
-                  .read(gameStateProvider.notifier)
-                  .voltarParaAguardandoOponente();
+              // Força volta para matchmaking
+              ref.read(gameStateProvider.notifier).forcarVoltaParaMatchmaking();
+              // Navega para matchmaking
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (context) => const MatchmakingScreen(),
+                ),
+                (route) => false,
+              );
             },
-            icon: Icon(Icons.refresh),
-            label: Text('Aguardar Novo Oponente'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF2E7D32),
-              foregroundColor: Colors.white,
-            ),
           ),
         ],
       ),

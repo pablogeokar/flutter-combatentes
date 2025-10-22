@@ -75,10 +75,24 @@ server/
 - Victory condition checking
 - Board constraint enforcement (lakes, boundaries)
 
+### WebSocket Communication (`game_socket_service.dart`)
+
+- `GameSocketService`: Comprehensive WebSocket client with advanced features
+- **Connection Management**: Robust connection handling with automatic retry
+- **Name Synchronization**: Multi-attempt name transmission with verification
+- **Dynamic Timeout System**: Phase-aware heartbeat monitoring (5min placement, 1min gameplay)
+- **Disconnection Detection**: Multiple strategies for opponent disconnection detection
+- **Phase Tracking**: Automatic detection of placement vs active game phases
+- **Heartbeat Monitoring**: Connection health tracking with intelligent timeout handling
+- **Debug Capabilities**: Comprehensive logging and status reporting for troubleshooting
+
 ### State Management (`providers.dart`)
 
 - `TelaJogoState`: UI state container
-- `GameStateNotifier`: Riverpod state notifier
+- `GameStateNotifier`: Riverpod state notifier with enhanced disconnection handling
+- **Phase Control Integration**: Automatic phase management during state changes
+- **Reconnection Logic**: Smart reconnection with proper state cleanup
+- **Matchmaking Recovery**: Force return to matchmaking with complete state reset
 - WebSocket integration for real-time updates
 
 ### UI Components (`ui/`)
@@ -147,6 +161,20 @@ server/
   - Action buttons for game restart and menu navigation
   - Personalized messaging with player name integration
   - Professional military theme consistency
+
+- **`game_flow_screen.dart`**: Enhanced game flow management with disconnection handling
+  - **Disconnection Detection**: Real-time monitoring of opponent disconnections
+  - **Smart Navigation**: Automatic return to matchmaking with proper state cleanup
+  - **Military Dialogs**: Professional disconnection and connection loss dialogs
+  - **Phase-Aware UI**: Loading screen with placement timeout information (5 minutes)
+  - **Connection Recovery**: Comprehensive error handling and user feedback
+  - **State Integration**: Seamless integration with GameStateNotifier for state management
+
+- **`matchmaking_screen.dart`**: Robust matchmaking with enhanced connection monitoring
+  - **Progress Detection**: Automatic detection of stalled matchmaking processes
+  - **Name Resend Logic**: Force name retransmission when pairing fails
+  - **Connection Monitoring**: Real-time status updates and timeout handling
+  - **User Feedback**: Clear visual indicators of connection and pairing status
 
 ### Server (Modular Architecture)
 
