@@ -106,15 +106,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
                 const SizedBox(height: 40),
 
-                // Logo de texto
-                Image.asset(
-                  'assets/images/combatentes.png',
-                  height: 70,
-                  fit: BoxFit.contain,
-                ),
-
-                const SizedBox(height: 16),
-
                 // Subtítulo
                 Container(
                   padding: const EdgeInsets.symmetric(

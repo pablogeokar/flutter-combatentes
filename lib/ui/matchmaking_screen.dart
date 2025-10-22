@@ -34,11 +34,9 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       duration: const Duration(seconds: 2),
       vsync: this,
     );
-
-    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+    _pulseAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-
     _pulseController.repeat(reverse: true);
   }
 
@@ -115,44 +113,125 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   }
 
   Widget _buildUserMenu() {
-    return MilitaryThemeWidgets.militaryCard(
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        color: Colors.black.withValues(alpha: 0.9),
+        border: Border.all(
+          color: MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.5),
+          width: 2,
+        ),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(
-            leading: const Icon(
-              Icons.person,
+          // Handle bar militar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
               color: MilitaryThemeWidgets.primaryGreen,
+              borderRadius: BorderRadius.circular(2),
             ),
-            title: const Text('Alterar Nome'),
+          ),
+
+          // Header militar
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.military_tech,
+                  color: MilitaryThemeWidgets.primaryGreen,
+                  size: 28,
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'MENU DE COMANDO',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Menu items militares
+          _buildMilitaryMenuItem(
+            icon: Icons.person,
+            title: 'ALTERAR NOME',
             onTap: () {
               Navigator.pop(context);
               _navigateToNameScreen();
             },
           ),
-          ListTile(
-            leading: const Icon(
-              Icons.settings,
-              color: MilitaryThemeWidgets.primaryGreen,
-            ),
-            title: const Text('Configurar Servidor'),
+          _buildMilitaryMenuItem(
+            icon: Icons.settings,
+            title: 'CONFIGURAR SERVIDOR',
             onTap: () {
               Navigator.pop(context);
               _showServerConfigDialog();
             },
           ),
-          ListTile(
-            leading: const Icon(
-              Icons.refresh,
-              color: MilitaryThemeWidgets.primaryGreen,
-            ),
-            title: const Text('Tentar Nova Conexão'),
+          _buildMilitaryMenuItem(
+            icon: Icons.refresh,
+            title: 'NOVA CONEXÃO',
             onTap: () {
               Navigator.pop(context);
               _startConnection();
             },
           ),
+
+          const SizedBox(height: 20),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMilitaryMenuItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: MilitaryThemeWidgets.primaryGreen, size: 24),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: MilitaryThemeWidgets.primaryGreen,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -222,33 +301,33 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          // Logo pequeno
+          // Logo grande do jogo
           Image.asset(
             'assets/images/logo.png',
-            height: 40,
+            height: 120,
             fit: BoxFit.contain,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
 
-          // Título
+          // Título e nome do jogador
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Combatentes',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
                 if (uiState.nomeUsuario != null)
                   Text(
-                    'Jogador: ${uiState.nomeUsuario}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.8),
+                    'Combatente ${uiState.nomeUsuario}',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(
+                          offset: Offset(1, 1),
+                          blurRadius: 3,
+                          color: Colors.black54,
+                        ),
+                      ],
                     ),
                   ),
               ],
@@ -258,7 +337,8 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
           // Menu do usuário
           IconButton(
             onPressed: _showUserMenu,
-            icon: const Icon(Icons.menu, color: Colors.white),
+            icon: const Icon(Icons.menu, color: Colors.white, size: 28),
+            tooltip: 'Menu',
           ),
         ],
       ),
@@ -266,11 +346,13 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
   }
 
   Widget _buildContent(TelaJogoState uiState) {
-    return Center(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Ícone animado
+          const SizedBox(height: 20),
+
+          // Ícone animado principal
           AnimatedBuilder(
             animation: _pulseAnimation,
             builder: (context, child) {
@@ -286,11 +368,20 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: MilitaryThemeWidgets.primaryGreen,
-                      width: 3,
+                      width: 4,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: MilitaryThemeWidgets.primaryGreen.withValues(
+                          alpha: 0.4,
+                        ),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                      ),
+                    ],
                   ),
-                  child: const Icon(
-                    Icons.search,
+                  child: Icon(
+                    _getStatusIcon(uiState.statusConexao),
                     size: 60,
                     color: MilitaryThemeWidgets.primaryGreen,
                   ),
@@ -299,11 +390,26 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
             },
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
-          // Status da conexão
-          MilitaryThemeWidgets.militaryCard(
+          // Card principal de status - mais escuro e militar
+          Container(
             padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.5),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
             child: Column(
               children: [
                 Text(
@@ -311,14 +417,17 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: MilitaryThemeWidgets.primaryGreen,
+                    color: Colors.white,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
                 Text(
                   uiState.statusConexao.mensagem,
-                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
                   textAlign: TextAlign.center,
                 ),
 
@@ -329,6 +438,7 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                     valueColor: AlwaysStoppedAnimation<Color>(
                       MilitaryThemeWidgets.primaryGreen,
                     ),
+                    strokeWidth: 3,
                   ),
                 ],
 
@@ -336,52 +446,91 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
                     uiState.statusConexao == StatusConexao.desconectado) ...[
                   const SizedBox(height: 20),
                   MilitaryThemeWidgets.militaryButton(
-                    text: 'Tentar Novamente',
+                    text: 'TENTAR NOVAMENTE',
+                    icon: Icons.refresh,
                     onPressed: _startConnection,
+                    width: double.infinity,
                   ),
                 ],
               ],
             ),
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
-          // Informações adicionais
-          MilitaryThemeWidgets.militaryCard(
-            padding: const EdgeInsets.all(16),
+          // Instruções de jogo - card militar escuro
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
             child: Column(
               children: [
-                const Icon(
-                  Icons.info_outline,
-                  color: MilitaryThemeWidgets.primaryGreen,
-                  size: 24,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: MilitaryThemeWidgets.primaryGreen,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'INSTRUÇÕES DE BATALHA',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: MilitaryThemeWidgets.primaryGreen,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Como Funciona',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: MilitaryThemeWidgets.primaryGreen,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Text(
-                  '1. Conecte-se ao servidor\n'
-                  '2. Aguarde um oponente se conectar\n'
-                  '3. Posicione suas 40 peças no tabuleiro\n'
-                  '4. Aguarde o oponente terminar\n'
+                  '1. Conecte-se ao servidor de comando\n'
+                  '2. Aguarde outro comandante se conectar\n'
+                  '3. Posicione suas 40 peças no campo de batalha\n'
+                  '4. Aguarde o oponente finalizar posicionamento\n'
                   '5. Clique em "PRONTO" quando terminar\n'
-                  '6. O jogo começará automaticamente!',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  '6. A batalha começará automaticamente!',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.9),
+                    height: 1.4,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
             ),
           ),
+
+          const SizedBox(height: 40), // Espaço extra no final
         ],
       ),
     );
+  }
+
+  IconData _getStatusIcon(StatusConexao status) {
+    switch (status) {
+      case StatusConexao.conectando:
+        return Icons.wifi_find;
+      case StatusConexao.conectado:
+        return Icons.search;
+      case StatusConexao.jogando:
+        return Icons.check_circle;
+      case StatusConexao.erro:
+        return Icons.error;
+      case StatusConexao.desconectado:
+        return Icons.wifi_off;
+      case StatusConexao.oponenteDesconectado:
+        return Icons.person_off;
+    }
   }
 
   String _getStatusTitle(StatusConexao status) {
