@@ -68,12 +68,6 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       ref
           .read(gameStateProvider.notifier)
           .conectarAoServidor(serverAddress, nomeUsuario);
-
-      // Aguarda um pouco e reenvia o nome para garantir
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        debugPrint('🔄 Reenviando nome após delay: $nomeUsuario');
-        ref.read(gameSocketProvider).enviarNome(nomeUsuario);
-      });
     } catch (e) {
       debugPrint('Erro ao iniciar conexão: $e');
       _showConnectionError('Erro ao conectar: $e');

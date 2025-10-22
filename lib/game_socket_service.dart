@@ -100,6 +100,19 @@ class GameSocketService {
               final data = jsonDecode(message);
               final type = data['type'];
 
+              // Qualquer mensagem do servidor indica que a conexão está funcionando
+              // Se recebemos mensagens estruturadas, o nome provavelmente foi aceito
+              if (!_nameConfirmed &&
+                  (type == 'atualizacaoEstado' ||
+                      type.startsWith('PLACEMENT_') ||
+                      type == 'mensagemServidor')) {
+                debugPrint(
+                  '✅ Nome implicitamente confirmado - servidor está respondendo',
+                );
+                _nameConfirmed = true;
+                _nameVerificationTimer?.cancel();
+              }
+
               debugPrint('📨 Mensagem recebida do servidor: $type');
               debugPrint('📨 Dados completos: $data');
 
@@ -186,27 +199,16 @@ class GameSocketService {
           });
           debugPrint('✅ Mensagem definirNome enviada imediatamente');
 
-          // Envia novamente após um pequeno delay para garantir
-          Future.delayed(const Duration(milliseconds: 200), () {
-            if (_channel != null) {
+          // Envia novamente após um pequeno delay para garantir (apenas uma vez)
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (_channel != null && !_nameConfirmed) {
               _sendMessage({
                 'type': 'definirNome',
                 'payload': {'nome': nomeUsuario},
               });
               debugPrint('✅ Mensagem definirNome reenviada (confirmação)');
-            }
-          });
-
-          // Terceira tentativa se necessário
-          Future.delayed(const Duration(milliseconds: 800), () {
-            if (_channel != null) {
-              _sendMessage({
-                'type': 'definirNome',
-                'payload': {'nome': nomeUsuario},
-              });
-              debugPrint(
-                '✅ Mensagem definirNome reenviada (terceira tentativa)',
-              );
+            } else if (_nameConfirmed) {
+              debugPrint('✅ Nome já confirmado, não reenviando');
             }
           });
 
@@ -347,7 +349,9 @@ class GameSocketService {
     _connectionTimeout?.cancel();
     _nameVerificationTimer?.cancel();
     _isConnecting = false;
-    _nameConfirmed = false;
+
+    // Reseta estado de confirmação
+    resetNameConfirmation();
     _pendingUserName = nomeUsuario;
 
     // Fecha a conexão atual se existir
@@ -428,6 +432,11 @@ class GameSocketService {
 
   /// Força o reenvio do nome (usado quando o pareamento não progride)
   void forcarReenvioNome(String nome) {
+    if (_nameConfirmed) {
+      debugPrint('✅ Nome já confirmado, não é necessário reenviar');
+      return;
+    }
+
     debugPrint('🔄 Forçando reenvio do nome: $nome');
     _nameConfirmed = false;
     _pendingUserName = nome;
@@ -435,34 +444,95 @@ class GameSocketService {
     _startNameVerificationTimer(nome);
   }
 
+  /// Verifica se o nome foi confirmado pelo servidor
+  bool get isNameConfirmed => _nameConfirmed;
+
+  /// Obtém o nome pendente de confirmação
+  String? get pendingUserName => _pendingUserName;
+
+  /// Reseta o estado de confirmação do nome (usado em reconexões)
+  void resetNameConfirmation() {
+    debugPrint('🔄 Resetando estado de confirmação do nome');
+    _nameConfirmed = false;
+    _nameVerificationTimer?.cancel();
+  }
+
+  /// Obtém informações completas sobre o status da conexão
+  Map<String, dynamic> getConnectionStatus() {
+    return {
+      'isConnecting': _isConnecting,
+      'isConnected': _isConnected,
+      'nameConfirmed': _nameConfirmed,
+      'pendingUserName': _pendingUserName,
+      'hasChannel': _channel != null,
+      'hasNameTimer':
+          _nameVerificationTimer != null && _nameVerificationTimer!.isActive,
+      'hasConnectionTimer':
+          _connectionTimeout != null && _connectionTimeout!.isActive,
+    };
+  }
+
   /// Inicia timer para verificar se o nome foi confirmado pelo servidor
   void _startNameVerificationTimer(String nomeUsuario) {
     _nameVerificationTimer?.cancel();
 
-    _nameVerificationTimer = Timer.periodic(const Duration(seconds: 2), (
+    // Timer menos agressivo - verifica a cada 5 segundos e para após 3 tentativas
+    int tentativas = 0;
+    const maxTentativas = 3;
+
+    _nameVerificationTimer = Timer.periodic(const Duration(seconds: 5), (
       timer,
     ) {
-      if (!_nameConfirmed && _channel != null && _pendingUserName != null) {
+      if (_nameConfirmed) {
+        debugPrint('✅ Nome confirmado, parando timer de verificação');
+        timer.cancel();
+        return;
+      }
+
+      if (tentativas >= maxTentativas) {
         debugPrint(
-          '🔄 Nome ainda não confirmado, reenviando: $_pendingUserName',
+          '⚠️ Máximo de tentativas de verificação atingido, parando timer',
+        );
+        timer.cancel();
+        return;
+      }
+
+      if (_channel != null && _pendingUserName != null) {
+        tentativas++;
+        debugPrint(
+          '🔄 Verificação $tentativas/$maxTentativas - Nome ainda não confirmado, reenviando: $_pendingUserName',
         );
         _sendMessage({
           'type': 'definirNome',
           'payload': {'nome': _pendingUserName},
         });
-      } else if (_nameConfirmed) {
-        debugPrint('✅ Nome confirmado, parando timer de verificação');
+      } else {
+        debugPrint('❌ Canal ou nome pendente é null, parando timer');
         timer.cancel();
       }
     });
 
-    // Para o timer após 30 segundos para evitar loop infinito
-    Timer(const Duration(seconds: 30), () {
+    // Para o timer após 20 segundos para evitar loop infinito
+    Timer(const Duration(seconds: 20), () {
       _nameVerificationTimer?.cancel();
       if (!_nameConfirmed) {
-        debugPrint('⚠️ Timer de verificação de nome expirou');
+        debugPrint('⚠️ Timer de verificação de nome expirou após 20 segundos');
       }
     });
+  }
+
+  /// Imprime status detalhado da conexão para debug
+  void printConnectionDebugInfo() {
+    final status = getConnectionStatus();
+    debugPrint('🔍 === STATUS DA CONEXÃO ===');
+    debugPrint('🔍 Conectando: ${status['isConnecting']}');
+    debugPrint('🔍 Conectado: ${status['isConnected']}');
+    debugPrint('🔍 Nome confirmado: ${status['nameConfirmed']}');
+    debugPrint('🔍 Nome pendente: ${status['pendingUserName']}');
+    debugPrint('🔍 Tem canal: ${status['hasChannel']}');
+    debugPrint('🔍 Timer de nome ativo: ${status['hasNameTimer']}');
+    debugPrint('🔍 Timer de conexão ativo: ${status['hasConnectionTimer']}');
+    debugPrint('🔍 ========================');
   }
 
   /// Fecha a conexão com o WebSocket.
