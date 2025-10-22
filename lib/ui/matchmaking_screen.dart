@@ -63,10 +63,17 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       }
 
       debugPrint('✅ Conectando ao servidor com nome: $nomeUsuario');
+
       // Conecta ao servidor
       ref
           .read(gameStateProvider.notifier)
           .conectarAoServidor(serverAddress, nomeUsuario);
+
+      // Aguarda um pouco e reenvia o nome para garantir
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        debugPrint('🔄 Reenviando nome após delay: $nomeUsuario');
+        ref.read(gameSocketProvider).enviarNome(nomeUsuario);
+      });
     } catch (e) {
       debugPrint('Erro ao iniciar conexão: $e');
       _showConnectionError('Erro ao conectar: $e');
@@ -179,6 +186,26 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const GameFlowScreen()),
         );
+      }
+
+      // Se ficou muito tempo conectado sem avançar, tenta reenviar o nome
+      if (current.statusConexao == StatusConexao.conectado &&
+          current.estadoJogo == null) {
+        // Agenda reenvio do nome após 5 segundos conectado
+        Future.delayed(const Duration(seconds: 5), () async {
+          if (mounted &&
+              ref.read(gameStateProvider).statusConexao ==
+                  StatusConexao.conectado &&
+              ref.read(gameStateProvider).estadoJogo == null) {
+            debugPrint(
+              '🔄 Muito tempo conectado sem progresso, reenviando nome...',
+            );
+            final nome = await UserPreferences.getUserName();
+            if (nome != null) {
+              ref.read(gameSocketProvider).forcarReenvioNome(nome);
+            }
+          }
+        });
       }
     });
 

@@ -16,8 +16,11 @@ class GameSocketService {
   final _placementController =
       StreamController<Map<String, dynamic>>.broadcast();
   Timer? _connectionTimeout;
+  Timer? _nameVerificationTimer;
   bool _isConnecting = false;
   bool _isConnected = false;
+  bool _nameConfirmed = false;
+  String? _pendingUserName;
 
   /// Stream que emite o [EstadoJogo] mais recente recebido do servidor.
   Stream<EstadoJogo> get streamDeEstados => _estadoController.stream;
@@ -40,6 +43,8 @@ class GameSocketService {
 
     _isConnecting = true;
     _isConnected = false;
+    _nameConfirmed = false;
+    _pendingUserName = nomeUsuario;
 
     // Emite status de conectando
     _statusController.add(StatusConexao.conectando);
@@ -78,11 +83,25 @@ class GameSocketService {
             if (!_isConnected) {
               _isConnected = true;
               _statusController.add(StatusConexao.conectado);
+
+              // Envia o nome imediatamente quando confirma conexão
+              if (nomeUsuario != null) {
+                debugPrint(
+                  '🔄 Conexão confirmada, reenviando nome: $nomeUsuario',
+                );
+                _sendMessage({
+                  'type': 'definirNome',
+                  'payload': {'nome': nomeUsuario},
+                });
+              }
             }
 
             try {
               final data = jsonDecode(message);
               final type = data['type'];
+
+              debugPrint('📨 Mensagem recebida do servidor: $type');
+              debugPrint('📨 Dados completos: $data');
 
               if (type == 'atualizacaoEstado') {
                 final estado = EstadoJogo.fromJson(data['payload']);
@@ -115,8 +134,20 @@ class GameSocketService {
                 // Processa mensagens de placement
                 debugPrint('📨 Mensagem de placement recebida: $type');
                 _placementController.add(data);
+              } else if (type == 'nomeDefinido' || type == 'nomeAtualizado') {
+                debugPrint('✅ Confirmação de nome recebida do servidor');
+                _nameConfirmed = true;
+                _nameVerificationTimer?.cancel();
+                final nomeConfirmado =
+                    data['payload']?['nome'] ?? data['data']?['nome'];
+                if (nomeConfirmado != null) {
+                  debugPrint(
+                    '✅ Nome confirmado pelo servidor: $nomeConfirmado',
+                  );
+                }
               } else if (type == 'mensagemServidor') {
                 final mensagem = data['payload'].toString();
+                debugPrint('📢 Mensagem do servidor: $mensagem');
 
                 // Verifica se o oponente desconectou
                 if (mensagem.contains('oponente desconectou') ||
@@ -147,30 +178,40 @@ class GameSocketService {
         // Envia o nome do usuário assim que conecta
         if (nomeUsuario != null) {
           debugPrint('🏷️ Enviando nome do usuário: $nomeUsuario');
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (_isConnected && _channel != null) {
+
+          // Envia imediatamente após estabelecer conexão
+          _sendMessage({
+            'type': 'definirNome',
+            'payload': {'nome': nomeUsuario},
+          });
+          debugPrint('✅ Mensagem definirNome enviada imediatamente');
+
+          // Envia novamente após um pequeno delay para garantir
+          Future.delayed(const Duration(milliseconds: 200), () {
+            if (_channel != null) {
               _sendMessage({
                 'type': 'definirNome',
                 'payload': {'nome': nomeUsuario},
               });
-              debugPrint('✅ Mensagem definirNome enviada');
-            } else {
-              debugPrint('❌ Conexão não estabelecida, tentando novamente...');
-              Future.delayed(const Duration(milliseconds: 500), () {
-                if (_isConnected && _channel != null) {
-                  _sendMessage({
-                    'type': 'definirNome',
-                    'payload': {'nome': nomeUsuario},
-                  });
-                  debugPrint(
-                    '✅ Mensagem definirNome enviada (segunda tentativa)',
-                  );
-                } else {
-                  debugPrint('❌ Falha ao enviar nome após segunda tentativa');
-                }
-              });
+              debugPrint('✅ Mensagem definirNome reenviada (confirmação)');
             }
           });
+
+          // Terceira tentativa se necessário
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (_channel != null) {
+              _sendMessage({
+                'type': 'definirNome',
+                'payload': {'nome': nomeUsuario},
+              });
+              debugPrint(
+                '✅ Mensagem definirNome reenviada (terceira tentativa)',
+              );
+            }
+          });
+
+          // Inicia timer para verificar se o nome foi confirmado
+          _startNameVerificationTimer(nomeUsuario);
         } else {
           debugPrint('⚠️ Nome do usuário é null, não enviando');
         }
@@ -218,18 +259,35 @@ class GameSocketService {
   /// Envia uma mensagem de forma segura
   void _sendMessage(Map<String, dynamic> message) {
     try {
-      if (_channel != null && _isConnected) {
+      if (_channel != null) {
         final messageJson = jsonEncode(message);
         debugPrint('📤 Enviando mensagem: $messageJson');
         _channel!.sink.add(messageJson);
         debugPrint('✅ Mensagem enviada com sucesso');
       } else {
         debugPrint(
-          '❌ Não foi possível enviar mensagem - canal: ${_channel != null}, conectado: $_isConnected',
+          '❌ Canal WebSocket é null, não foi possível enviar mensagem',
         );
       }
     } catch (e) {
       debugPrint('❌ Erro ao enviar mensagem: $e');
+
+      // Tenta reenviar após um delay se for uma mensagem crítica como definirNome
+      if (message['type'] == 'definirNome') {
+        debugPrint('🔄 Tentando reenviar nome após erro...');
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          if (_channel != null) {
+            try {
+              final messageJson = jsonEncode(message);
+              _channel!.sink.add(messageJson);
+              debugPrint('✅ Nome reenviado com sucesso após erro');
+            } catch (retryError) {
+              debugPrint('❌ Falha ao reenviar nome: $retryError');
+            }
+          }
+        });
+      }
+
       _erroController.add('Erro ao enviar dados para o servidor.');
     }
   }
@@ -244,17 +302,53 @@ class GameSocketService {
 
   /// Envia o nome do usuário para o servidor
   void enviarNome(String nome) {
-    _sendMessage({
-      'type': 'definirNome',
-      'payload': {'nome': nome},
-    });
+    debugPrint('🏷️ enviarNome chamado com: $nome');
+    _enviarNomeComRetry(nome, 0);
+  }
+
+  /// Envia o nome com retry automático
+  void _enviarNomeComRetry(String nome, int tentativa) {
+    if (tentativa >= 5) {
+      debugPrint('❌ Máximo de tentativas de envio de nome atingido');
+      return;
+    }
+
+    try {
+      if (_channel != null) {
+        final message = {
+          'type': 'definirNome',
+          'payload': {'nome': nome},
+        };
+        final messageJson = jsonEncode(message);
+        debugPrint(
+          '📤 Enviando nome (tentativa ${tentativa + 1}): $messageJson',
+        );
+        _channel!.sink.add(messageJson);
+        debugPrint('✅ Nome enviado com sucesso (tentativa ${tentativa + 1})');
+      } else {
+        debugPrint(
+          '❌ Canal null na tentativa ${tentativa + 1}, reagendando...',
+        );
+        Future.delayed(Duration(milliseconds: 300 * (tentativa + 1)), () {
+          _enviarNomeComRetry(nome, tentativa + 1);
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao enviar nome (tentativa ${tentativa + 1}): $e');
+      Future.delayed(Duration(milliseconds: 500 * (tentativa + 1)), () {
+        _enviarNomeComRetry(nome, tentativa + 1);
+      });
+    }
   }
 
   /// Reconecta ao servidor
   void reconnect(String url, {String? nomeUsuario}) {
-    // Cancela timeout anterior
+    // Cancela timeouts anteriores
     _connectionTimeout?.cancel();
+    _nameVerificationTimer?.cancel();
     _isConnecting = false;
+    _nameConfirmed = false;
+    _pendingUserName = nomeUsuario;
 
     // Fecha a conexão atual se existir
     try {
@@ -332,9 +426,49 @@ class GameSocketService {
     _sendMessage(message);
   }
 
+  /// Força o reenvio do nome (usado quando o pareamento não progride)
+  void forcarReenvioNome(String nome) {
+    debugPrint('🔄 Forçando reenvio do nome: $nome');
+    _nameConfirmed = false;
+    _pendingUserName = nome;
+    _enviarNomeComRetry(nome, 0);
+    _startNameVerificationTimer(nome);
+  }
+
+  /// Inicia timer para verificar se o nome foi confirmado pelo servidor
+  void _startNameVerificationTimer(String nomeUsuario) {
+    _nameVerificationTimer?.cancel();
+
+    _nameVerificationTimer = Timer.periodic(const Duration(seconds: 2), (
+      timer,
+    ) {
+      if (!_nameConfirmed && _channel != null && _pendingUserName != null) {
+        debugPrint(
+          '🔄 Nome ainda não confirmado, reenviando: $_pendingUserName',
+        );
+        _sendMessage({
+          'type': 'definirNome',
+          'payload': {'nome': _pendingUserName},
+        });
+      } else if (_nameConfirmed) {
+        debugPrint('✅ Nome confirmado, parando timer de verificação');
+        timer.cancel();
+      }
+    });
+
+    // Para o timer após 30 segundos para evitar loop infinito
+    Timer(const Duration(seconds: 30), () {
+      _nameVerificationTimer?.cancel();
+      if (!_nameConfirmed) {
+        debugPrint('⚠️ Timer de verificação de nome expirou');
+      }
+    });
+  }
+
   /// Fecha a conexão com o WebSocket.
   void dispose() {
     _connectionTimeout?.cancel();
+    _nameVerificationTimer?.cancel();
     _isConnecting = false;
 
     try {

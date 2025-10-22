@@ -68,6 +68,49 @@ pnpm run start
 - **Communication**: JSON message passing over WebSocket
 - **Game Logic**: Shared business logic between client and server (duplicated for validation)
 
+## WebSocket Communication System
+
+### Enhanced Connection Management (October 2025)
+
+- **Multi-Attempt Name Transmission**: Robust system ensuring player names reach the server
+- **Connection State Tracking**: Comprehensive monitoring of connection, name confirmation, and game states
+- **Automatic Retry Logic**: Progressive backoff retry system for critical messages
+- **Timeout Management**: Multiple timeout systems preventing indefinite waits
+
+### Message Reliability System
+
+- **Critical Message Retry**: Automatic retry for essential messages like `definirNome`
+- **Name Verification Timer**: Periodic verification ensuring server received player name
+- **Message Logging**: Detailed logging for debugging connection and synchronization issues
+- **Error Recovery**: Graceful handling of connection errors with automatic recovery attempts
+
+### Matchmaking Improvements
+
+- **Stall Detection**: Automatic detection when matchmaking process stalls
+- **Force Resend Capability**: Manual and automatic name resend when synchronization fails
+- **Progress Monitoring**: Real-time monitoring of matchmaking progress with corrective actions
+- **State Synchronization**: Enhanced client-server state synchronization for reliable pairing
+
+### Technical Implementation Details
+
+```dart
+// Key components for reliable WebSocket communication
+class GameSocketService {
+  Timer? _nameVerificationTimer;     // Periodic name confirmation check
+  bool _nameConfirmed = false;       // Server name confirmation tracking
+  String? _pendingUserName;          // Name awaiting confirmation
+  
+  // Multi-attempt name sending with exponential backoff
+  void _enviarNomeComRetry(String nome, int tentativa);
+  
+  // Force name resend for critical situations
+  void forcarReenvioNome(String nome);
+  
+  // Periodic verification of name confirmation
+  void _startNameVerificationTimer(String nomeUsuario);
+}
+```
+
 ## Animation System
 
 ### Flutter Animation Framework

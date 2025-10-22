@@ -33,6 +33,27 @@ This document outlines the most important features and bug fixes that are essent
 - Client sends name immediately upon connection
 - Robust name matching with multiple strategies
 
+### Matchmaking Synchronization Issues (October 2025)
+
+**Problem**: Players getting stuck in matchmaking screen with server pairing "Aguardando nome..." players
+**Root Cause**: Client failing to send user name to server, causing synchronization failure
+
+**Solution**: Comprehensive name transmission system
+
+- **Multiple Send Attempts**: Name sent immediately upon connection + 3 retry attempts with progressive delays
+- **Name Verification Timer**: Periodic verification every 2 seconds to ensure name was received by server
+- **Automatic Retry System**: `_enviarNomeComRetry` method with up to 5 attempts and exponential backoff
+- **Matchmaking Timeout Detection**: Detects when connected for >5 seconds without game progress and forces name resend
+- **Robust Message Handling**: Improved WebSocket message processing with detailed logging
+- **Connection State Management**: Better tracking of connection and name confirmation states
+- **Force Resend Method**: `forcarReenvioNome` for critical situations when matchmaking stalls
+
+**Technical Implementation**:
+- Added `_nameConfirmed`, `_nameVerificationTimer`, and `_pendingUserName` state tracking
+- Enhanced `_sendMessage` with automatic retry for critical messages like `definirNome`
+- Improved error handling and logging throughout the connection process
+- MatchmakingScreen now monitors connection state and triggers corrective actions
+
 ## 🚀 Essential Features
 
 ### Connection Status System
