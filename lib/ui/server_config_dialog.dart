@@ -27,7 +27,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
       final currentServer = await UserPreferences.getServerAddress();
       _serverController.text = currentServer;
     } catch (e) {
-      _serverController.text = 'wss://flutter-combatentes.onrender.com';
+      _serverController.text = 'wss://combatentes.zionix.com.br';
     } finally {
       setState(() => _isLoading = false);
     }
@@ -85,7 +85,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
   }
 
   void _resetToDefault() {
-    _serverController.text = 'wss://flutter-combatentes.onrender.com';
+    _serverController.text = 'wss://combatentes.zionix.com.br';
   }
 
   @override
@@ -222,8 +222,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                               ),
                               decoration: InputDecoration(
                                 labelText: 'Endereço do Servidor',
-                                hintText:
-                                    'wss://flutter-combatentes.onrender.com',
+                                hintText: 'wss://combatentes.zionix.com.br',
                                 prefixIcon: Icon(
                                   Icons.dns,
                                   color: MilitaryThemeWidgets.primaryGreen,
@@ -274,7 +273,9 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                             TextButton.icon(
                               onPressed: _resetToDefault,
                               icon: const Icon(Icons.refresh, size: 18),
-                              label: const Text('Usar Padrão (Render.com)'),
+                              label: const Text(
+                                'Usar Padrão (combatentes.zionix.com.br)',
+                              ),
                               style: TextButton.styleFrom(
                                 foregroundColor:
                                     MilitaryThemeWidgets.primaryGreen,
@@ -313,7 +314,7 @@ class _ServerConfigDialogState extends State<ServerConfigDialog> {
                                   ),
                                   const SizedBox(height: 8),
                                   const Text(
-                                    '• wss://flutter-combatentes.onrender.com (padrão)\n'
+                                    '• wss://combatentes.zionix.com.br (padrão)\n'
                                     '• ws://localhost:8083 (local)\n'
                                     '• ws://192.168.1.100:8083 (rede local)',
                                     style: TextStyle(fontSize: 13),

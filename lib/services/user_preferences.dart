@@ -7,8 +7,7 @@ class UserPreferences {
   static const String _fileName = 'combatentes_user.json';
   static const String _userNameKey = 'user_name';
   static const String _serverAddressKey = 'server_address';
-  static const String _defaultServerAddress =
-      'wss://flutter-combatentes.onrender.com';
+  static const String _defaultServerAddress = 'wss://combatentes.zionix.com.br';
 
   static String? _cachedUserName;
   static String? _cachedServerAddress;
