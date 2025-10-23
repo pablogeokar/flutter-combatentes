@@ -255,31 +255,17 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
           // Inventário à esquerda - oculto quando jogador está pronto
           Flexible(
             flex: 2,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 500),
-              transitionBuilder: (child, animation) {
-                return SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(-1.0, 0.0),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeInOut,
-                    ),
-                  ),
-                  child: FadeTransition(opacity: animation, child: child),
-                );
-              },
-              child: showInventory
-                  ? Padding(
-                      key: const ValueKey('inventory'),
-                      padding: const EdgeInsets.only(right: 16.0),
-                      child: SingleChildScrollView(
-                        child: _buildInventorySection(),
-                      ),
-                    )
-                  : const SizedBox.shrink(key: ValueKey('no-inventory')),
+            child: Visibility(
+              visible: showInventory,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: SingleChildScrollView(
+                  child: _buildInventorySection(),
+                ),
+              ),
             ),
           ),
 
@@ -313,38 +299,24 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
               children: [
                 // Tabuleiro - ocupa mais espaço quando inventário está oculto
                 Expanded(
-                  flex: showInventory ? 3 : 1,
+                  flex: showInventory ? 1 : 3,
                   child: _buildBoardSection(),
                 ),
 
                 // Inventário à direita - oculto quando jogador está pronto
                 Flexible(
                   flex: 2,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 500),
-                    transitionBuilder: (child, animation) {
-                      return SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(1.0, 0.0),
-                          end: Offset.zero,
-                        ).animate(
-                          CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeInOut,
-                          ),
-                        ),
-                        child: FadeTransition(opacity: animation, child: child),
-                      );
-                    },
-                    child: showInventory
-                        ? Padding(
-                            key: const ValueKey('inventory'),
-                            padding: const EdgeInsets.only(left: 12.0),
-                            child: SingleChildScrollView(
-                              child: _buildInventorySection(),
-                            ),
-                          )
-                        : const SizedBox.shrink(key: ValueKey('no-inventory')),
+                  child: Visibility(
+                    visible: showInventory,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 12.0),
+                      child: SingleChildScrollView(
+                        child: _buildInventorySection(),
+                      ),
+                    ),
                   ),
                 ),
               ],
