@@ -238,23 +238,52 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
   /// Layout para telas largas (desktop/landscape).
   Widget _buildWideScreenLayout() {
+    final showInventory = _shouldShowInventory();
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Inventário à esquerda - com scroll próprio se necessário
-          Expanded(
-            flex: 2,
-            child: SingleChildScrollView(child: _buildInventorySection()),
+          // Inventário à esquerda - oculto quando jogador está pronto
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            transitionBuilder: (child, animation) {
+              return SlideTransition(
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(-1.0, 0.0),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeInOut,
+                      ),
+                    ),
+                child: FadeTransition(opacity: animation, child: child),
+              );
+            },
+            child: showInventory
+                ? Row(
+                    key: const ValueKey('inventory'),
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: SingleChildScrollView(
+                          child: _buildInventorySection(),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                    ],
+                  )
+                : const SizedBox.shrink(key: ValueKey('no-inventory')),
           ),
+
+          // Tabuleiro no centro - ocupa mais espaço quando inventário está oculto
+          Expanded(flex: showInventory ? 3 : 4, child: _buildBoardSection()),
           const SizedBox(width: 16),
 
-          // Tabuleiro no centro
-          Expanded(flex: 3, child: _buildBoardSection()),
-          const SizedBox(width: 16),
-
-          // Status à direita (apenas botão de confirmação agora)
+          // Ações à direita
           Expanded(flex: 1, child: _buildActionSection()),
         ],
       ),
@@ -263,6 +292,8 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
   /// Layout para tablets.
   Widget _buildTabletLayout() {
+    final showInventory = _shouldShowInventory();
+
     return Padding(
       padding: const EdgeInsets.all(12.0),
       child: Column(
@@ -276,14 +307,44 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tabuleiro à esquerda
-                Expanded(flex: 3, child: _buildBoardSection()),
-                const SizedBox(width: 12),
-
-                // Inventário à direita - com scroll próprio se necessário
+                // Tabuleiro - ocupa mais espaço quando inventário está oculto
                 Expanded(
-                  flex: 2,
-                  child: SingleChildScrollView(child: _buildInventorySection()),
+                  flex: showInventory ? 3 : 1,
+                  child: _buildBoardSection(),
+                ),
+
+                // Inventário à direita - oculto quando jogador está pronto
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  transitionBuilder: (child, animation) {
+                    return SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(1.0, 0.0),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeInOut,
+                            ),
+                          ),
+                      child: FadeTransition(opacity: animation, child: child),
+                    );
+                  },
+                  child: showInventory
+                      ? Row(
+                          key: const ValueKey('inventory'),
+                          children: [
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: SingleChildScrollView(
+                                child: _buildInventorySection(),
+                              ),
+                            ),
+                          ],
+                        )
+                      : const SizedBox.shrink(key: ValueKey('no-inventory')),
                 ),
               ],
             ),
@@ -295,6 +356,8 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
   /// Layout para dispositivos móveis.
   Widget _buildMobileLayout() {
+    final showInventory = _shouldShowInventory();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(8.0),
       child: Column(
@@ -305,13 +368,42 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
           // Tabuleiro
           _buildBoardSection(),
-          const SizedBox(height: 12),
 
-          // Inventário na parte inferior - com altura flexível
-          ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 200, maxHeight: 600),
-            child: _buildInventorySection(),
+          // Inventário na parte inferior - oculto quando jogador está pronto
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 500),
+            transitionBuilder: (child, animation) {
+              return SlideTransition(
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(0.0, 1.0),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeInOut,
+                      ),
+                    ),
+                child: FadeTransition(opacity: animation, child: child),
+              );
+            },
+            child: showInventory
+                ? Column(
+                    key: const ValueKey('inventory'),
+                    children: [
+                      const SizedBox(height: 12),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minHeight: 200,
+                          maxHeight: 600,
+                        ),
+                        child: _buildInventorySection(),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(key: ValueKey('no-inventory')),
           ),
+
           // Espaço extra para garantir scroll
           const SizedBox(height: 20),
         ],
@@ -544,35 +636,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
           ),
         ),
 
-        // Informações adicionais se necessário
-        if (!_inventory.isEmpty) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.info_outline, color: Colors.orange, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Posicione todas as ${_inventory.totalPiecesRemaining} peças restantes',
-                    style: const TextStyle(
-                      color: Colors.orange,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        // Informações adicionais baseadas no estado
+        const SizedBox(height: 8),
+        _buildStatusMessage(state),
       ],
     );
   }
@@ -774,6 +840,75 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
     final state = _controller.currentState ?? widget.initialState;
     return state.localStatus == PlacementStatus.placing &&
         !_controller.isGameStarting;
+  }
+
+  /// Verifica se deve mostrar o inventário.
+  /// O inventário é ocultado quando o jogador já confirmou o posicionamento.
+  bool _shouldShowInventory() {
+    final state = _controller.currentState ?? widget.initialState;
+    return state.localStatus == PlacementStatus.placing;
+  }
+
+  /// Constrói a mensagem de status baseada no estado atual.
+  Widget _buildStatusMessage(PlacementGameState state) {
+    if (!_inventory.isEmpty) {
+      // Ainda há peças para posicionar
+      return Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.info_outline, color: Colors.orange, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Posicione todas as ${_inventory.totalPiecesRemaining} peças restantes',
+                style: const TextStyle(
+                  color: Colors.orange,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (state.localStatus == PlacementStatus.ready) {
+      // Jogador está pronto, aguardando oponente
+      return Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.green.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Posicionamento confirmado! Aguardando oponente finalizar...',
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Estado padrão
+      return const SizedBox.shrink();
+    }
   }
 
   /// Retorna a equipe do jogador.
