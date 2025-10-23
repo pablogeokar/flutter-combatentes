@@ -92,10 +92,32 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
         action: SnackBarAction(
           label: 'Tentar Novamente',
           textColor: Colors.white,
-          onPressed: _startConnection,
+          onPressed: _forceReconnection,
         ),
       ),
     );
+  }
+
+  /// Força reconexão imediata (usado quando há problemas persistentes)
+  Future<void> _forceReconnection() async {
+    debugPrint('🚨 Forçando reconexão no MatchmakingScreen');
+
+    try {
+      final nomeUsuario = await UserPreferences.getUserName();
+      final serverAddress = await UserPreferences.getServerAddress();
+
+      if (nomeUsuario != null) {
+        // Usa reconexão forçada para casos críticos
+        ref
+            .read(gameSocketProvider)
+            .forceReconnectDuringPlacement(serverAddress, nomeUsuario);
+      } else {
+        _navigateToNameScreen();
+      }
+    } catch (e) {
+      debugPrint('Erro na reconexão forçada: $e');
+      _showConnectionError('Erro na reconexão: $e');
+    }
   }
 
   void _showServerConfigDialog() {

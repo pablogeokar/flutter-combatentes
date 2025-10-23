@@ -539,10 +539,22 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
       final nomeUsuario = await UserPreferences.getUserName();
       final serverAddress = await UserPreferences.getServerAddress();
 
-      final success = await socketService.reconnectDuringPlacement(
+      // Tenta reconexão normal primeiro
+      var success = await socketService.reconnectDuringPlacement(
         serverAddress,
         nomeUsuario: nomeUsuario,
       );
+
+      // Se falhou, tenta reconexão forçada
+      if (!success && nomeUsuario != null) {
+        debugPrint('🚨 Reconexão normal falhou, tentando reconexão forçada');
+        socketService.forceReconnectDuringPlacement(serverAddress, nomeUsuario);
+
+        // Aguarda um pouco para ver se a reconexão forçada funciona
+        await Future.delayed(const Duration(seconds: 5));
+        success =
+            socketService.isNameConfirmed && socketService.isInPlacementPhase;
+      }
 
       // Remove o loading dialog
       if (mounted) {

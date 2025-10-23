@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -18,12 +19,15 @@ class GameSocketService {
   Timer? _connectionTimeout;
   Timer? _nameVerificationTimer;
   Timer? _heartbeatTimer;
+  Timer? _keepAliveTimer;
   bool _isConnecting = false;
   bool _isConnected = false;
   bool _nameConfirmed = false;
   String? _pendingUserName;
   DateTime? _lastMessageReceived;
   bool _isInPlacementPhase = true; // Controla se está na fase de posicionamento
+  int _reconnectionAttempts = 0; // Contador de tentativas de reconexão
+  DateTime? _lastConnectionAttempt; // Timestamp da última tentativa
 
   /// Stream que emite o [EstadoJogo] mais recente recebido do servidor.
   Stream<EstadoJogo> get streamDeEstados => _estadoController.stream;
@@ -41,13 +45,33 @@ class GameSocketService {
   /// Conecta-se ao servidor WebSocket e começa a ouvir por mensagens.
   void connect(String url, {String? nomeUsuario}) {
     if (_isConnecting) {
+      debugPrint('⚠️ Já está conectando, ignorando nova tentativa');
       return;
     }
 
+    // Controle de rate limiting para evitar spam de conexões
+    final now = DateTime.now();
+    if (_lastConnectionAttempt != null) {
+      final timeSinceLastAttempt = now.difference(_lastConnectionAttempt!);
+      if (timeSinceLastAttempt.inSeconds < 5) {
+        debugPrint('⚠️ Tentativa de conexão muito rápida, aguardando...');
+        Future.delayed(
+          Duration(seconds: 5 - timeSinceLastAttempt.inSeconds),
+          () {
+            connect(url, nomeUsuario: nomeUsuario);
+          },
+        );
+        return;
+      }
+    }
+
+    _lastConnectionAttempt = now;
     _isConnecting = true;
     _isConnected = false;
     _nameConfirmed = false;
     _pendingUserName = nomeUsuario;
+
+    debugPrint('🔄 Iniciando conexão (tentativa ${_reconnectionAttempts + 1})');
 
     // Emite status de conectando
     _statusController.add(StatusConexao.conectando);
@@ -85,6 +109,8 @@ class GameSocketService {
             // Marca como conectado na primeira mensagem recebida
             if (!_isConnected) {
               _isConnected = true;
+              _reconnectionAttempts = 0; // Reset contador de tentativas
+              debugPrint('✅ Conexão estabelecida com sucesso');
               _statusController.add(StatusConexao.conectado);
 
               // Envia o nome imediatamente quando confirma conexão
@@ -100,6 +126,11 @@ class GameSocketService {
 
               // Inicia monitoramento de heartbeat
               _startHeartbeatMonitoring();
+
+              // Inicia keep-alive durante posicionamento
+              if (_isInPlacementPhase) {
+                _startKeepAlive();
+              }
             }
 
             // Atualiza timestamp da última mensagem recebida
@@ -128,12 +159,18 @@ class GameSocketService {
               if (type == 'atualizacaoEstado') {
                 final estado = EstadoJogo.fromJson(data['payload']);
                 _estadoController.add(estado);
-                // Quando recebe estado do jogo, significa que saiu do posicionamento
-                if (_isInPlacementPhase) {
+
+                // Só muda para fase de jogo se realmente há peças no tabuleiro
+                // Durante posicionamento, o estado pode vir vazio
+                if (_isInPlacementPhase && estado.pecas.isNotEmpty) {
                   debugPrint(
-                    '🎯 Detectada mudança para fase de jogo via atualizacaoEstado',
+                    '🎯 Detectada mudança para fase de jogo via atualizacaoEstado (${estado.pecas.length} peças)',
                   );
                   setPlacementPhase(false);
+                } else if (_isInPlacementPhase && estado.pecas.isEmpty) {
+                  debugPrint(
+                    '🎯 Estado vazio recebido, mantendo fase de posicionamento',
+                  );
                 }
                 _statusController.add(StatusConexao.jogando);
               } else if (type == 'erroMovimento') {
@@ -246,27 +283,14 @@ class GameSocketService {
         if (nomeUsuario != null) {
           debugPrint('🏷️ Enviando nome do usuário: $nomeUsuario');
 
-          // Envia imediatamente após estabelecer conexão
+          // Envia apenas uma vez inicialmente
           _sendMessage({
             'type': 'definirNome',
             'payload': {'nome': nomeUsuario},
           });
-          debugPrint('✅ Mensagem definirNome enviada imediatamente');
+          debugPrint('✅ Mensagem definirNome enviada');
 
-          // Envia novamente após um pequeno delay para garantir (apenas uma vez)
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (_channel != null && !_nameConfirmed) {
-              _sendMessage({
-                'type': 'definirNome',
-                'payload': {'nome': nomeUsuario},
-              });
-              debugPrint('✅ Mensagem definirNome reenviada (confirmação)');
-            } else if (_nameConfirmed) {
-              debugPrint('✅ Nome já confirmado, não reenviando');
-            }
-          });
-
-          // Inicia timer para verificar se o nome foi confirmado
+          // Inicia timer para verificar confirmação (mais conservador)
           _startNameVerificationTimer(nomeUsuario);
         } else {
           debugPrint('⚠️ Nome do usuário é null, não enviando');
@@ -282,8 +306,17 @@ class GameSocketService {
   /// Trata erros de conexão de forma centralizada
   void _handleConnectionError(String mensagem) {
     _connectionTimeout?.cancel();
+    _nameVerificationTimer?.cancel();
+    _heartbeatTimer?.cancel();
+    _keepAliveTimer?.cancel();
     _isConnecting = false;
     _isConnected = false;
+    _nameConfirmed = false;
+
+    _reconnectionAttempts++;
+    debugPrint(
+      '❌ Erro de conexão (tentativa $_reconnectionAttempts): $mensagem',
+    );
 
     // Fecha canal se existir
     try {
@@ -362,10 +395,16 @@ class GameSocketService {
     _enviarNomeComRetry(nome, 0);
   }
 
-  /// Envia o nome com retry automático
+  /// Envia o nome com retry automático (mais conservador)
   void _enviarNomeComRetry(String nome, int tentativa) {
-    if (tentativa >= 5) {
-      debugPrint('❌ Máximo de tentativas de envio de nome atingido');
+    if (tentativa >= 3) {
+      debugPrint('❌ Máximo de tentativas de envio de nome atingido (3)');
+      return;
+    }
+
+    // Verifica se o nome já foi confirmado antes de tentar novamente
+    if (_nameConfirmed) {
+      debugPrint('✅ Nome já confirmado, cancelando retry');
       return;
     }
 
@@ -376,22 +415,22 @@ class GameSocketService {
           'payload': {'nome': nome},
         };
         final messageJson = jsonEncode(message);
-        debugPrint(
-          '📤 Enviando nome (tentativa ${tentativa + 1}): $messageJson',
-        );
+        debugPrint('📤 Enviando nome (tentativa ${tentativa + 1}/3): $nome');
         _channel!.sink.add(messageJson);
         debugPrint('✅ Nome enviado com sucesso (tentativa ${tentativa + 1})');
       } else {
         debugPrint(
           '❌ Canal null na tentativa ${tentativa + 1}, reagendando...',
         );
-        Future.delayed(Duration(milliseconds: 300 * (tentativa + 1)), () {
+        // Delay mais longo entre tentativas
+        Future.delayed(Duration(milliseconds: 2000 * (tentativa + 1)), () {
           _enviarNomeComRetry(nome, tentativa + 1);
         });
       }
     } catch (e) {
       debugPrint('❌ Erro ao enviar nome (tentativa ${tentativa + 1}): $e');
-      Future.delayed(Duration(milliseconds: 500 * (tentativa + 1)), () {
+      // Delay ainda maior em caso de erro
+      Future.delayed(Duration(milliseconds: 3000 * (tentativa + 1)), () {
         _enviarNomeComRetry(nome, tentativa + 1);
       });
     }
@@ -403,6 +442,7 @@ class GameSocketService {
     _connectionTimeout?.cancel();
     _nameVerificationTimer?.cancel();
     _heartbeatTimer?.cancel();
+    _keepAliveTimer?.cancel();
     _isConnecting = false;
 
     // Reseta estado de confirmação
@@ -418,9 +458,20 @@ class GameSocketService {
 
     _channel = null;
 
-    // Aguarda um pouco antes de tentar reconectar
-    Future.delayed(const Duration(milliseconds: 500), () {
-      connect(url, nomeUsuario: nomeUsuario);
+    // Backoff exponencial baseado no número de tentativas
+    final delaySeconds = math.min(
+      math.pow(2, _reconnectionAttempts).toInt(),
+      30,
+    );
+    debugPrint(
+      '🔄 Aguardando ${delaySeconds}s antes de reconectar (tentativa $_reconnectionAttempts)',
+    );
+
+    Future.delayed(Duration(seconds: delaySeconds), () {
+      if (!_isConnected) {
+        // Só reconecta se ainda não estiver conectado
+        connect(url, nomeUsuario: nomeUsuario);
+      }
     });
   }
 
@@ -564,6 +615,9 @@ class GameSocketService {
           _connectionTimeout != null && _connectionTimeout!.isActive,
       'isInPlacementPhase': _isInPlacementPhase,
       'heartbeatTimeout': _getHeartbeatTimeout(),
+      'reconnectionAttempts': _reconnectionAttempts,
+      'isServerUnstable': isServerUnstable,
+      'lastConnectionAttempt': _lastConnectionAttempt?.toString(),
     };
   }
 
@@ -571,11 +625,11 @@ class GameSocketService {
   void _startNameVerificationTimer(String nomeUsuario) {
     _nameVerificationTimer?.cancel();
 
-    // Timer menos agressivo - verifica a cada 5 segundos e para após 3 tentativas
+    // Timer mais conservador - verifica a cada 10 segundos e para após 2 tentativas
     int tentativas = 0;
-    const maxTentativas = 3;
+    const maxTentativas = 2;
 
-    _nameVerificationTimer = Timer.periodic(const Duration(seconds: 5), (
+    _nameVerificationTimer = Timer.periodic(const Duration(seconds: 10), (
       timer,
     ) {
       if (_nameConfirmed) {
@@ -586,7 +640,7 @@ class GameSocketService {
 
       if (tentativas >= maxTentativas) {
         debugPrint(
-          '⚠️ Máximo de tentativas de verificação atingido, parando timer',
+          '⚠️ Máximo de tentativas de verificação atingido ($maxTentativas), parando timer',
         );
         timer.cancel();
         return;
@@ -607,11 +661,11 @@ class GameSocketService {
       }
     });
 
-    // Para o timer após 20 segundos para evitar loop infinito
-    Timer(const Duration(seconds: 20), () {
+    // Para o timer após 30 segundos para evitar loop infinito
+    Timer(const Duration(seconds: 30), () {
       _nameVerificationTimer?.cancel();
       if (!_nameConfirmed) {
-        debugPrint('⚠️ Timer de verificação de nome expirou após 20 segundos');
+        debugPrint('⚠️ Timer de verificação de nome expirou após 30 segundos');
       }
     });
   }
@@ -620,31 +674,35 @@ class GameSocketService {
   void _startHeartbeatMonitoring() {
     _heartbeatTimer?.cancel();
 
+    // Durante posicionamento, desabilita heartbeat timeout - usa apenas keep-alive
+    if (_isInPlacementPhase) {
+      debugPrint('💓 Heartbeat timeout DESABILITADO durante posicionamento');
+      return;
+    }
+
     // Verifica a cada 30 segundos se recebemos mensagens recentemente
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      // Se mudou para posicionamento, para o heartbeat
+      if (_isInPlacementPhase) {
+        debugPrint('💓 Mudou para posicionamento, parando heartbeat timeout');
+        timer.cancel();
+        return;
+      }
+
       if (_lastMessageReceived != null) {
         final timeSinceLastMessage = DateTime.now().difference(
           _lastMessageReceived!,
         );
 
-        // Timeout dinâmico baseado na fase do jogo
-        final timeoutSeconds = _getHeartbeatTimeout();
+        // Timeout apenas durante jogo ativo
+        final timeoutSeconds = 120; // 2 minutos durante jogo
 
         if (timeSinceLastMessage.inSeconds > timeoutSeconds) {
-          final phase = _isInPlacementPhase ? 'posicionamento' : 'jogo';
           debugPrint(
-            '💔 Heartbeat timeout ($phase) - sem mensagens por ${timeSinceLastMessage.inSeconds}s (limite: ${timeoutSeconds}s)',
+            '💔 Heartbeat timeout (jogo) - sem mensagens por ${timeSinceLastMessage.inSeconds}s (limite: ${timeoutSeconds}s)',
           );
           _handleConnectionError('Conexão perdida com o servidor');
           timer.cancel();
-        } else {
-          // Log periódico para debug (apenas a cada 2 minutos para não poluir)
-          if (timeSinceLastMessage.inSeconds % 120 == 0 &&
-              timeSinceLastMessage.inSeconds > 0) {
-            debugPrint(
-              '💓 Heartbeat OK - última mensagem há ${timeSinceLastMessage.inSeconds}s (limite: ${timeoutSeconds}s)',
-            );
-          }
         }
       }
     });
@@ -653,11 +711,12 @@ class GameSocketService {
   /// Retorna o timeout apropriado baseado na fase do jogo
   int _getHeartbeatTimeout() {
     if (_isInPlacementPhase) {
-      // 5 minutos durante posicionamento - jogadores precisam de tempo para estratégia
-      return 300; // 5 * 60 segundos
+      // 10 minutos durante posicionamento - ainda mais tempo para evitar desconexões
+      // Especialmente importante quando há problemas de servidor
+      return isServerUnstable ? 900 : 600; // 15min se instável, 10min normal
     } else {
-      // 60 segundos durante jogo ativo - mais responsivo
-      return 60;
+      // 2 minutos durante jogo ativo se servidor instável, 1 minuto normal
+      return isServerUnstable ? 120 : 60;
     }
   }
 
@@ -672,6 +731,13 @@ class GameSocketService {
       // Reinicia o heartbeat com o novo timeout
       if (_isConnected) {
         _startHeartbeatMonitoring();
+
+        // Controla keep-alive baseado na fase
+        if (isPlacement) {
+          _startKeepAlive();
+        } else {
+          _stopKeepAlive();
+        }
       }
     }
   }
@@ -691,6 +757,97 @@ class GameSocketService {
     setPlacementPhase(true);
   }
 
+  /// Verifica se o servidor está instável baseado no número de reconexões
+  bool get isServerUnstable => _reconnectionAttempts > 3;
+
+  /// Reseta contadores de estabilidade (chamado quando conexão é bem-sucedida)
+  void resetStabilityCounters() {
+    _reconnectionAttempts = 0;
+    _lastConnectionAttempt = null;
+    debugPrint('✅ Contadores de estabilidade resetados');
+  }
+
+  /// Inicia sistema de keep-alive durante posicionamento
+  void _startKeepAlive() {
+    _keepAliveTimer?.cancel();
+
+    if (!_isInPlacementPhase) {
+      debugPrint('🔄 Não está em posicionamento, keep-alive não necessário');
+      return;
+    }
+
+    debugPrint('💓 Iniciando keep-alive para posicionamento');
+
+    // Envia ping a cada 30 segundos durante posicionamento
+    _keepAliveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (!_isInPlacementPhase) {
+        debugPrint('💓 Saiu do posicionamento, parando keep-alive');
+        timer.cancel();
+        return;
+      }
+
+      if (_channel != null && _isConnected) {
+        // Envia uma mensagem simples que o servidor reconhece
+        try {
+          // Usa mensagem de status de placement que o servidor conhece
+          _sendMessage({
+            'type': 'PLACEMENT_STATUS_REQUEST',
+            'payload': {'keepAlive': true},
+          });
+          debugPrint('💓 Keep-alive (PLACEMENT_STATUS_REQUEST) enviado');
+        } catch (e) {
+          debugPrint('❌ Erro ao enviar keep-alive: $e');
+          timer.cancel();
+        }
+      } else {
+        debugPrint('❌ Canal não disponível, parando keep-alive');
+        timer.cancel();
+      }
+    });
+  }
+
+  /// Para o keep-alive quando sair do posicionamento
+  void _stopKeepAlive() {
+    _keepAliveTimer?.cancel();
+    debugPrint('💓 Keep-alive parado');
+  }
+
+  /// Força reconexão imediata durante posicionamento (para casos críticos)
+  void forceReconnectDuringPlacement(String url, String? nomeUsuario) {
+    debugPrint('🚨 Forçando reconexão imediata durante posicionamento');
+
+    // Para todos os timers
+    _connectionTimeout?.cancel();
+    _nameVerificationTimer?.cancel();
+    _heartbeatTimer?.cancel();
+    _keepAliveTimer?.cancel();
+
+    // Fecha conexão atual
+    try {
+      _channel?.sink.close();
+    } catch (e) {
+      // Ignora erros
+    }
+
+    _channel = null;
+    _isConnecting = false;
+    _isConnected = false;
+    _nameConfirmed = false;
+
+    // Preserva o nome do usuário para reconexão
+    if (nomeUsuario != null) {
+      _pendingUserName = nomeUsuario;
+      debugPrint('🔄 Nome preservado para reconexão forçada: $nomeUsuario');
+    }
+
+    // Força fase de posicionamento
+    _isInPlacementPhase = true;
+
+    // Reconecta imediatamente (sem delay)
+    debugPrint('🔄 Reconectando imediatamente...');
+    connect(url, nomeUsuario: nomeUsuario);
+  }
+
   /// Imprime status detalhado da conexão para debug
   void printConnectionDebugInfo() {
     final status = getConnectionStatus();
@@ -704,6 +861,8 @@ class GameSocketService {
     debugPrint('🔍 Timer de conexão ativo: ${status['hasConnectionTimer']}');
     debugPrint('🔍 Fase de posicionamento: ${status['isInPlacementPhase']}');
     debugPrint('🔍 Timeout heartbeat: ${status['heartbeatTimeout']}s');
+    debugPrint('🔍 Tentativas de reconexão: ${status['reconnectionAttempts']}');
+    debugPrint('🔍 Servidor instável: ${status['isServerUnstable']}');
     debugPrint(
       '🔍 Última mensagem: ${_lastMessageReceived?.toString() ?? 'Nunca'}',
     );
@@ -715,6 +874,7 @@ class GameSocketService {
     _connectionTimeout?.cancel();
     _nameVerificationTimer?.cancel();
     _heartbeatTimer?.cancel();
+    _keepAliveTimer?.cancel();
     _isConnecting = false;
 
     try {
