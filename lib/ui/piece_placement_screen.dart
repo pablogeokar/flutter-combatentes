@@ -10,7 +10,7 @@ import '../piece_inventory.dart';
 import '../providers.dart';
 import 'piece_inventory_widget.dart';
 import 'placement_board_widget.dart';
-import 'placement_status_widget.dart';
+
 import 'military_theme_widgets.dart';
 
 /// Tela principal de posicionamento de peças.
@@ -194,8 +194,13 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
         }
       },
       child: Scaffold(
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: _buildHeader(),
+        ),
         body: MilitaryThemeWidgets.militaryBackground(
           child: SafeArea(
+            top: false, // AppBar já cuida do SafeArea no topo
             child: AnimatedBuilder(
               animation: _fadeAnimation!,
               builder: (context, child) {
@@ -233,172 +238,244 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
   /// Layout para telas largas (desktop/landscape).
   Widget _buildWideScreenLayout() {
-    return Column(
-      children: [
-        _buildHeader(),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Inventário à esquerda - com scroll próprio se necessário
-                Expanded(
-                  flex: 2,
-                  child: SingleChildScrollView(child: _buildInventorySection()),
-                ),
-                const SizedBox(width: 16),
-
-                // Tabuleiro no centro
-                Expanded(flex: 3, child: _buildBoardSection()),
-                const SizedBox(width: 16),
-
-                // Status à direita
-                Expanded(flex: 2, child: _buildStatusSection()),
-              ],
-            ),
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Inventário à esquerda - com scroll próprio se necessário
+          Expanded(
+            flex: 2,
+            child: SingleChildScrollView(child: _buildInventorySection()),
           ),
-        ),
-      ],
+          const SizedBox(width: 16),
+
+          // Tabuleiro no centro
+          Expanded(flex: 3, child: _buildBoardSection()),
+          const SizedBox(width: 16),
+
+          // Status à direita (apenas botão de confirmação agora)
+          Expanded(flex: 1, child: _buildActionSection()),
+        ],
+      ),
     );
   }
 
   /// Layout para tablets.
   Widget _buildTabletLayout() {
-    return Column(
-      children: [
-        _buildHeader(),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Column(
+    return Padding(
+      padding: const EdgeInsets.all(12.0),
+      child: Column(
+        children: [
+          // Ações no topo
+          _buildActionSection(),
+          const SizedBox(height: 12),
+
+          // Tabuleiro e inventário lado a lado
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Status no topo
-                _buildStatusSection(),
-                const SizedBox(height: 12),
+                // Tabuleiro à esquerda
+                Expanded(flex: 3, child: _buildBoardSection()),
+                const SizedBox(width: 12),
 
-                // Tabuleiro e inventário lado a lado
+                // Inventário à direita - com scroll próprio se necessário
                 Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Tabuleiro à esquerda
-                      Expanded(flex: 3, child: _buildBoardSection()),
-                      const SizedBox(width: 12),
-
-                      // Inventário à direita - com scroll próprio se necessário
-                      Expanded(
-                        flex: 2,
-                        child: SingleChildScrollView(
-                          child: _buildInventorySection(),
-                        ),
-                      ),
-                    ],
-                  ),
+                  flex: 2,
+                  child: SingleChildScrollView(child: _buildInventorySection()),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   /// Layout para dispositivos móveis.
   Widget _buildMobileLayout() {
-    return Column(
-      children: [
-        _buildHeader(),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                // Status no topo
-                _buildStatusSection(),
-                const SizedBox(height: 12),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        children: [
+          // Ações no topo
+          _buildActionSection(),
+          const SizedBox(height: 12),
 
-                // Tabuleiro
-                _buildBoardSection(),
-                const SizedBox(height: 12),
+          // Tabuleiro
+          _buildBoardSection(),
+          const SizedBox(height: 12),
 
-                // Inventário na parte inferior - com altura flexível
-                ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    minHeight: 200,
-                    maxHeight: 600,
-                  ),
-                  child: _buildInventorySection(),
-                ),
-                // Espaço extra para garantir scroll
-                const SizedBox(height: 20),
-              ],
+          // Inventário na parte inferior - com altura flexível
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 200, maxHeight: 600),
+            child: _buildInventorySection(),
+          ),
+          // Espaço extra para garantir scroll
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  /// Constrói o cabeçalho da tela seguindo o padrão da tela do jogo.
+  Widget _buildHeader() {
+    return AppBar(
+      title: Row(
+        children: [
+          // Logo de texto do jogo com fundo sutil (mesmo padrão da tela do jogo)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
+            child: Image.asset(
+              'assets/images/combatentes.png',
+              height: 28,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Icon(
+                  Icons.military_tech,
+                  color: Colors.white,
+                  size: 28,
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 16),
+
+          // Status compacto integrado à AppBar
+          Expanded(child: _buildCompactPlacementStatus()),
+        ],
+      ),
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/bg.png'),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: Container(
+          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.7)),
+        ),
+      ),
+      foregroundColor: Colors.white,
+      elevation: 4,
+      shadowColor: Colors.black.withValues(alpha: 0.3),
+      automaticallyImplyLeading: false, // Remove botão de voltar
+      actions: [
+        // Indicador de fase compacto
+        Container(
+          margin: const EdgeInsets.only(right: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(_getPhaseIcon(), color: Colors.white, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                _getPhaseText(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  /// Constrói o cabeçalho da tela.
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.9),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Espaço onde estava o botão voltar (removido para evitar saída acidental)
-          const SizedBox(width: 16),
+  /// Constrói o status compacto para a AppBar.
+  Widget _buildCompactPlacementStatus() {
+    final state = _controller.currentState ?? widget.initialState;
 
-          // Logo pequeno
-          Image.asset(
-            'assets/images/logo.png',
-            height: 32,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              return const Icon(Icons.military_tech, color: Colors.white);
-            },
+    return Row(
+      children: [
+        // Peças restantes
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
           ),
-          const SizedBox(width: 12),
-
-          // Título
-          const Expanded(
-            child: Text(
-              'Posicionamento de Peças',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.inventory_2,
+                color: _inventory.isEmpty ? Colors.green : Colors.white,
+                size: 16,
               ),
-            ),
+              const SizedBox(width: 4),
+              Text(
+                '${_inventory.totalPiecesRemaining}/40',
+                style: TextStyle(
+                  color: _inventory.isEmpty ? Colors.green : Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
+        ),
+        const SizedBox(width: 12),
 
-          // Indicador de fase
+        // Status do oponente
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _getOpponentStatusIcon(state.opponentStatus),
+                color: _getOpponentStatusColor(state.opponentStatus),
+                size: 16,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _getOpponentStatusText(state.opponentStatus),
+                style: TextStyle(
+                  color: _getOpponentStatusColor(state.opponentStatus),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Countdown se estiver iniciando
+        if (_controller.isGameStarting) ...[
+          const SizedBox(width: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(16),
+              color: Colors.orange.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(_getPhaseIcon(), color: Colors.white, size: 16),
-                const SizedBox(width: 6),
+                const Icon(Icons.rocket_launch, color: Colors.orange, size: 16),
+                const SizedBox(width: 4),
                 Text(
-                  _getPhaseText(),
+                  '${_controller.countdownSeconds}s',
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
+                    color: Colors.orange,
+                    fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),
                 ),
@@ -406,7 +483,7 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 
@@ -437,23 +514,65 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
     );
   }
 
-  /// Constrói a seção de status.
-  Widget _buildStatusSection() {
+  /// Constrói a seção de ações (botão de confirmação).
+  Widget _buildActionSection() {
     final state = _controller.currentState ?? widget.initialState;
+    final canConfirm =
+        _inventory.isEmpty && state.localStatus == PlacementStatus.placing;
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        PlacementStatusWidget(
-          localPiecesRemaining: _inventory.totalPiecesRemaining,
-          opponentStatus: state.opponentStatus,
-          canConfirm:
-              _inventory.isEmpty &&
-              state.localStatus == PlacementStatus.placing,
-          localStatus: state.localStatus,
-          onReadyPressed: _handleReadyPressed,
-          isGameStarting: _controller.isGameStarting,
-          countdownSeconds: _controller.countdownSeconds,
+        // Botão principal de confirmação
+        SizedBox(
+          width: double.infinity,
+          child: MilitaryThemeWidgets.militaryButton(
+            text: _controller.isGameStarting
+                ? 'Iniciando... ${_controller.countdownSeconds}s'
+                : state.localStatus == PlacementStatus.ready
+                ? 'Aguardando Oponente'
+                : 'CONFIRMAR POSICIONAMENTO',
+            onPressed: canConfirm && !_controller.isGameStarting
+                ? _handleReadyPressed
+                : null,
+            icon: _controller.isGameStarting
+                ? Icons.rocket_launch
+                : state.localStatus == PlacementStatus.ready
+                ? Icons.hourglass_empty
+                : Icons.check_circle,
+            isLoading: _controller.isGameStarting,
+          ),
         ),
+
+        // Informações adicionais se necessário
+        if (!_inventory.isEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.info_outline, color: Colors.orange, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Posicione todas as ${_inventory.totalPiecesRemaining} peças restantes',
+                    style: const TextStyle(
+                      color: Colors.orange,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -701,6 +820,42 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
         return 'Iniciando...';
       default:
         return 'Preparação';
+    }
+  }
+
+  /// Retorna o ícone do status do oponente.
+  IconData _getOpponentStatusIcon(PlacementStatus status) {
+    switch (status) {
+      case PlacementStatus.placing:
+        return Icons.build;
+      case PlacementStatus.ready:
+        return Icons.check_circle;
+      case PlacementStatus.waiting:
+        return Icons.hourglass_empty;
+    }
+  }
+
+  /// Retorna a cor do status do oponente.
+  Color _getOpponentStatusColor(PlacementStatus status) {
+    switch (status) {
+      case PlacementStatus.placing:
+        return Colors.orange;
+      case PlacementStatus.ready:
+        return Colors.green;
+      case PlacementStatus.waiting:
+        return Colors.blue;
+    }
+  }
+
+  /// Retorna o texto do status do oponente.
+  String _getOpponentStatusText(PlacementStatus status) {
+    switch (status) {
+      case PlacementStatus.placing:
+        return 'Posicionando';
+      case PlacementStatus.ready:
+        return 'Pronto';
+      case PlacementStatus.waiting:
+        return 'Aguardando';
     }
   }
 

@@ -5,7 +5,7 @@ import 'dart:math' as math;
 import '../modelos_jogo.dart';
 import '../piece_inventory.dart';
 import '../placement_error_handler.dart';
-import 'military_theme_widgets.dart';
+
 import 'peca_widget.dart';
 
 /// Widget de tabuleiro interativo para posicionamento de peças com drag and drop.
@@ -457,12 +457,9 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
             child: Container(
               margin: EdgeInsets.all(cellSize * 0.05),
               decoration: BoxDecoration(
-                color: MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.3),
+                color: Colors.amber.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(cellSize * 0.1),
-                border: Border.all(
-                  color: MilitaryThemeWidgets.primaryGreen,
-                  width: 3,
-                ),
+                border: Border.all(color: Colors.amber, width: 3),
               ),
             ),
           );
@@ -565,8 +562,9 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
   void _handlePieceTap(PecaJogo peca) {
     if (!widget.enabled) return;
 
-    // Implementar lógica de seleção/movimento de peça se necessário
-    // Por enquanto, permite remoção via long press
+    // Permite remoção da peça com tap simples para melhor UX
+    // O usuário pode clicar na peça para devolvê-la ao inventário
+    _handlePieceRemove(peca);
   }
 
   /// Manipula a remoção de uma peça.
@@ -609,9 +607,9 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
       return Colors.orange.withValues(alpha: 0.2);
     }
     if (isHighlighted) {
-      return MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.4);
+      return Colors.amber.withValues(alpha: 0.5);
     }
-    return MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.2);
+    return Colors.amber.withValues(alpha: 0.3);
   }
 
   /// Retorna a cor da borda da zona de drop.
@@ -626,7 +624,7 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
     if (!isValid) {
       return Colors.orange;
     }
-    return MilitaryThemeWidgets.primaryGreen;
+    return Colors.amber;
   }
 
   /// Retorna o ícone da zona de drop.
@@ -648,7 +646,7 @@ class _PlacementBoardWidgetState extends State<PlacementBoardWidget>
     if (!isValid) {
       return Colors.orange;
     }
-    return MilitaryThemeWidgets.primaryGreen;
+    return Colors.amber;
   }
 
   /// Mostra uma snackbar com mensagem de erro.
@@ -752,11 +750,11 @@ class PlayerAreaHighlightPainter extends CustomPainter {
     if (!enabled) return;
 
     final highlightPaint = Paint()
-      ..color = MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.1)
+      ..color = Colors.amber.withValues(alpha: 0.2)
       ..style = PaintingStyle.fill;
 
     final borderPaint = Paint()
-      ..color = MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.4)
+      ..color = Colors.amber.withValues(alpha: 0.6)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 

@@ -147,6 +147,16 @@ class PieceInventoryWidget extends StatelessWidget {
 
   /// Constrói uma categoria de peças com título.
   Widget _buildPieceCategory(String title, List<Patente> pieces) {
+    // Filtra apenas peças que ainda têm contagem > 0
+    final availablePieces = pieces
+        .where((patente) => inventory.getAvailableCount(patente) > 0)
+        .toList();
+
+    // Se não há peças disponíveis nesta categoria, não mostra nada
+    if (availablePieces.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -164,7 +174,7 @@ class PieceInventoryWidget extends StatelessWidget {
             return Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: pieces
+              children: availablePieces
                   .map(
                     (patente) => _buildPieceItem(patente, constraints.maxWidth),
                   )
@@ -178,12 +188,17 @@ class PieceInventoryWidget extends StatelessWidget {
 
   /// Constrói uma grade compacta para telas pequenas.
   Widget _buildCompactGrid(List<Patente> pieces) {
+    // Filtra apenas peças que ainda têm contagem > 0
+    final availablePieces = pieces
+        .where((patente) => inventory.getAvailableCount(patente) > 0)
+        .toList();
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return Wrap(
           spacing: 6,
           runSpacing: 6,
-          children: pieces
+          children: availablePieces
               .map((patente) => _buildPieceItem(patente, constraints.maxWidth))
               .toList(),
         );
