@@ -566,16 +566,19 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
   Widget _buildBoardSection() {
     final state = _controller.currentState ?? widget.initialState;
 
-    return PlacementBoardWidget(
-      placedPieces: state.placedPieces,
-      playerArea: state.playerArea,
-      selectedPieceType: _selectedPieceType,
-      inventory: _inventory,
-      playerTeam: _getPlayerTeam(),
-      onPositionTap: _handlePositionTap,
-      onPieceDrag: _handlePieceDrag,
-      onPieceRemove: _handlePieceRemove,
-      enabled: _isInteractionEnabled(),
+    return AspectRatio(
+      aspectRatio: 1.0,
+      child: PlacementBoardWidget(
+        placedPieces: state.placedPieces,
+        playerArea: state.playerArea,
+        selectedPieceType: _selectedPieceType,
+        inventory: _inventory,
+        playerTeam: _getPlayerTeam(),
+        onPositionTap: _handlePositionTap,
+        onPieceDrag: _handlePieceDrag,
+        onPieceRemove: _handlePieceRemove,
+        enabled: _isInteractionEnabled(),
+      ),
     );
   }
 
