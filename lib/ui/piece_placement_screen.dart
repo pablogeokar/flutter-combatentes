@@ -150,8 +150,15 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
       widget.onGameStart?.call();
     }
 
-    // Atualiza o estado local se necessário
-    setState(() {});
+    // Atualiza o estado local apenas se necessário e se o widget ainda está montado
+    if (mounted) {
+      // Usa um microtask para evitar rebuilds síncronos excessivos
+      Future.microtask(() {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+    }
   }
 
   /// Manipula retry de operações falhadas.
@@ -246,37 +253,34 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Inventário à esquerda - oculto quando jogador está pronto
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 500),
-            transitionBuilder: (child, animation) {
-              return SlideTransition(
-                position:
-                    Tween<Offset>(
-                      begin: const Offset(-1.0, 0.0),
-                      end: Offset.zero,
-                    ).animate(
-                      CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeInOut,
-                      ),
+          Flexible(
+            flex: 2,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              transitionBuilder: (child, animation) {
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(-1.0, 0.0),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeInOut,
                     ),
-                child: FadeTransition(opacity: animation, child: child),
-              );
-            },
-            child: showInventory
-                ? Row(
-                    key: const ValueKey('inventory'),
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: SingleChildScrollView(
-                          child: _buildInventorySection(),
-                        ),
+                  ),
+                  child: FadeTransition(opacity: animation, child: child),
+                );
+              },
+              child: showInventory
+                  ? Padding(
+                      key: const ValueKey('inventory'),
+                      padding: const EdgeInsets.only(right: 16.0),
+                      child: SingleChildScrollView(
+                        child: _buildInventorySection(),
                       ),
-                      const SizedBox(width: 16),
-                    ],
-                  )
-                : const SizedBox.shrink(key: ValueKey('no-inventory')),
+                    )
+                  : const SizedBox.shrink(key: ValueKey('no-inventory')),
+            ),
           ),
 
           // Tabuleiro no centro - ocupa mais espaço quando inventário está oculto
@@ -314,37 +318,34 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
                 ),
 
                 // Inventário à direita - oculto quando jogador está pronto
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 500),
-                  transitionBuilder: (child, animation) {
-                    return SlideTransition(
-                      position:
-                          Tween<Offset>(
-                            begin: const Offset(1.0, 0.0),
-                            end: Offset.zero,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeInOut,
-                            ),
+                Flexible(
+                  flex: 2,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 500),
+                    transitionBuilder: (child, animation) {
+                      return SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(1.0, 0.0),
+                          end: Offset.zero,
+                        ).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeInOut,
                           ),
-                      child: FadeTransition(opacity: animation, child: child),
-                    );
-                  },
-                  child: showInventory
-                      ? Row(
-                          key: const ValueKey('inventory'),
-                          children: [
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 2,
-                              child: SingleChildScrollView(
-                                child: _buildInventorySection(),
-                              ),
+                        ),
+                        child: FadeTransition(opacity: animation, child: child),
+                      );
+                    },
+                    child: showInventory
+                        ? Padding(
+                            key: const ValueKey('inventory'),
+                            padding: const EdgeInsets.only(left: 12.0),
+                            child: SingleChildScrollView(
+                              child: _buildInventorySection(),
                             ),
-                          ],
-                        )
-                      : const SizedBox.shrink(key: ValueKey('no-inventory')),
+                          )
+                        : const SizedBox.shrink(key: ValueKey('no-inventory')),
+                  ),
                 ),
               ],
             ),
@@ -420,7 +421,7 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: Colors.white.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Image.asset(
@@ -450,12 +451,12 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
           ),
         ),
         child: Container(
-          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.7)),
+          decoration: BoxDecoration(color: Colors.black.withOpacity(0.7)),
         ),
       ),
       foregroundColor: Colors.white,
       elevation: 4,
-      shadowColor: Colors.black.withValues(alpha: 0.3),
+      shadowColor: Colors.black.withOpacity(0.3),
       automaticallyImplyLeading: false, // Remove botão de voltar
       actions: [
         // Indicador de fase compacto
@@ -463,7 +464,7 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
           margin: const EdgeInsets.only(right: 16),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -492,13 +493,13 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
     return Row(
       children: [
-        // Peças restantes
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
+
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -525,7 +526,7 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -555,7 +556,7 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.2),
+              color: Colors.orange.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -650,9 +651,11 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
     // Atualiza atividade de rede para evitar timeout
     _controller.updateNetworkActivity();
 
-    setState(() {
-      _selectedPieceType = _selectedPieceType == patente ? null : patente;
-    });
+    if (mounted) {
+      setState(() {
+        _selectedPieceType = _selectedPieceType == patente ? null : patente;
+      });
+    }
   }
 
   /// Manipula o tap em uma posição do tabuleiro.
@@ -796,12 +799,16 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
 
     // Limpa seleção se não há mais peças deste tipo
     if (!_inventory.isAvailable(patente)) {
-      setState(() {
-        _selectedPieceType = null;
-      });
+      if (mounted) {
+        setState(() {
+          _selectedPieceType = null;
+        });
+      }
     }
 
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   /// Remove uma peça do tabuleiro.
@@ -832,7 +839,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
     );
 
     _controller.updateState(updatedState);
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   /// Verifica se a interação está habilitada.
@@ -856,9 +865,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
       return Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.orange.withValues(alpha: 0.1),
+          color: Colors.orange.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+          border: Border.all(color: Colors.orange.withOpacity(0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -883,9 +892,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
       return Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.green.withValues(alpha: 0.1),
+          color: Colors.green.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -998,9 +1007,11 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
   void _showCannotExitDialog() {
     if (_showExitDialog) return;
 
-    setState(() {
-      _showExitDialog = true;
-    });
+    if (mounted) {
+      setState(() {
+        _showExitDialog = true;
+      });
+    }
 
     MilitaryThemeWidgets.showMilitaryDialog<void>(
       context: context,
@@ -1017,17 +1028,21 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
           text: 'Entendi',
           onPressed: () {
             Navigator.of(context).pop();
-            setState(() {
-              _showExitDialog = false;
-            });
+            if (mounted) {
+              setState(() {
+                _showExitDialog = false;
+              });
+            }
           },
           icon: Icons.check,
         ),
       ],
     ).then((_) {
-      setState(() {
-        _showExitDialog = false;
-      });
+      if (mounted) {
+        setState(() {
+          _showExitDialog = false;
+        });
+      }
     });
   }
 

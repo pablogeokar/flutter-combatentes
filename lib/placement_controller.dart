@@ -440,12 +440,14 @@ class PlacementController extends ChangeNotifier {
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _countdownSeconds--;
       debugPrint('PlacementController: Countdown: $_countdownSeconds');
-      notifyListeners();
 
       if (_countdownSeconds <= 0) {
         timer.cancel();
         debugPrint('PlacementController: Countdown finalizado, iniciando jogo');
         _finishGameStart();
+      } else {
+        // Notifica listeners apenas quando necessário para atualizar a UI
+        notifyListeners();
       }
     });
   }
