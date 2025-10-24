@@ -5,9 +5,10 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _i3;
 
-import 'package:combatentes/game_socket_service.dart' as _i2;
-import 'package:combatentes/modelos_jogo.dart' as _i4;
-import 'package:combatentes/providers.dart' as _i5;
+import 'package:combatentes/src/common/models/game_state_models.dart' as _i5;
+import 'package:combatentes/src/common/models/modelos_jogo.dart' as _i4;
+import 'package:combatentes/src/common/services/game_socket_service.dart'
+    as _i2;
 import 'package:mockito/mockito.dart' as _i1;
 
 // ignore_for_file: type=lint
@@ -58,6 +59,38 @@ class MockGameSocketService extends _i1.Mock implements _i2.GameSocketService {
           as _i3.Stream<_i5.StatusConexao>);
 
   @override
+  _i3.Stream<Map<String, dynamic>> get streamDePlacement =>
+      (super.noSuchMethod(
+            Invocation.getter(#streamDePlacement),
+            returnValue: _i3.Stream<Map<String, dynamic>>.empty(),
+          )
+          as _i3.Stream<Map<String, dynamic>>);
+
+  @override
+  bool get isNameConfirmed =>
+      (super.noSuchMethod(
+            Invocation.getter(#isNameConfirmed),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  bool get isInPlacementPhase =>
+      (super.noSuchMethod(
+            Invocation.getter(#isInPlacementPhase),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
+  bool get isServerUnstable =>
+      (super.noSuchMethod(
+            Invocation.getter(#isServerUnstable),
+            returnValue: false,
+          )
+          as bool);
+
+  @override
   void connect(String? url, {String? nomeUsuario}) => super.noSuchMethod(
     Invocation.method(#connect, [url], {#nomeUsuario: nomeUsuario}),
     returnValueForMissingStub: null,
@@ -103,6 +136,63 @@ class MockGameSocketService extends _i1.Mock implements _i2.GameSocketService {
         Invocation.method(#enviarMensagemPlacement, [message]),
         returnValueForMissingStub: null,
       );
+
+  @override
+  void forcarReenvioNome(String? nome) => super.noSuchMethod(
+    Invocation.method(#forcarReenvioNome, [nome]),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  void resetNameConfirmation() => super.noSuchMethod(
+    Invocation.method(#resetNameConfirmation, []),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  Map<String, dynamic> getConnectionStatus() =>
+      (super.noSuchMethod(
+            Invocation.method(#getConnectionStatus, []),
+            returnValue: <String, dynamic>{},
+          )
+          as Map<String, dynamic>);
+
+  @override
+  void setPlacementPhase(bool? isPlacement) => super.noSuchMethod(
+    Invocation.method(#setPlacementPhase, [isPlacement]),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  void forceGamePhase() => super.noSuchMethod(
+    Invocation.method(#forceGamePhase, []),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  void forcePlacementPhase() => super.noSuchMethod(
+    Invocation.method(#forcePlacementPhase, []),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  void resetStabilityCounters() => super.noSuchMethod(
+    Invocation.method(#resetStabilityCounters, []),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  void forceReconnectDuringPlacement(String? url, String? nomeUsuario) =>
+      super.noSuchMethod(
+        Invocation.method(#forceReconnectDuringPlacement, [url, nomeUsuario]),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void printConnectionDebugInfo() => super.noSuchMethod(
+    Invocation.method(#printConnectionDebugInfo, []),
+    returnValueForMissingStub: null,
+  );
 
   @override
   void dispose() => super.noSuchMethod(

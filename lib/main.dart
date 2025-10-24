@@ -1,7 +1,7 @@
-import 'package:combatentes/ui/tela_nome_usuario.dart';
-import 'package:combatentes/ui/matchmaking_screen.dart';
-import 'package:combatentes/services/user_preferences.dart';
-import 'package:combatentes/audio_service.dart';
+import 'package:combatentes/src/features/1_initial_setup/ui/screens/username_screen.dart';
+import 'package:combatentes/src/features/1_initial_setup/ui/screens/matchmaking_screen.dart';
+import 'package:combatentes/src/common/services/user_preferences.dart';
+import 'package:combatentes/src/common/services/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

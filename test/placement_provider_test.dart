@@ -2,10 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';
-import 'package:combatentes/placement_provider.dart';
-import 'package:combatentes/placement_controller.dart';
-import 'package:combatentes/modelos_jogo.dart';
-import 'package:combatentes/placement_error_handler.dart';
+import 'package:combatentes/src/features/2_piece_placement/logic/providers/placement_provider.dart';
+import 'package:combatentes/src/features/2_piece_placement/logic/controllers/placement_controller.dart';
+import 'package:combatentes/src/common/models/modelos_jogo.dart';
+import 'package:combatentes/src/features/2_piece_placement/logic/placement_error_handler.dart';
 
 // Generate mocks
 @GenerateMocks([PlacementController])

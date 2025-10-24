@@ -59,14 +59,17 @@ pnpm run start
 
 - Use `json_serializable` for automatic JSON serialization
 - Run `flutter pub run build_runner build` after modifying model classes with `@JsonSerializable()`
-- Generated files have `.g.dart` extension (e.g., `modelos_jogo.g.dart`)
+- Generated files have `.g.dart` extension (e.g., `modelos_jogo.g.dart`, `piece_inventory.g.dart`)
+- **NEW**: Enhanced model generation for piece inventory and game state management
 
 ## Architecture Patterns
 
-- **Client**: Provider pattern with Riverpod for state management
+- **Client**: Feature-based architecture with Riverpod for state management
 - **Server**: Event-driven WebSocket architecture
 - **Communication**: JSON message passing over WebSocket
 - **Game Logic**: Shared business logic between client and server (duplicated for validation)
+- **NEW**: Multi-instance coordination for enhanced multiplayer experience
+- **NEW**: Persistent state management for placement phase recovery
 
 ## WebSocket Communication System
 
@@ -199,6 +202,85 @@ assets/sounds/
 ├── desarme.wav           # Mine disarm effect (Engineer vs Mine)
 ├── comemoracao.mp3       # Victory celebration
 └── derrota_fim.wav       # Defeat sound
+```
+
+## Major Refactoring (October 2025)
+
+### Feature-Based Architecture Implementation
+
+The entire Flutter codebase has been refactored from a flat structure to a feature-based architecture:
+
+#### Before (Flat Structure)
+```
+lib/
+├── main.dart
+├── modelos_jogo.dart
+├── game_controller.dart
+├── game_socket_service.dart
+├── providers.dart
+├── audio_service.dart
+└── ui/
+    ├── tela_jogo.dart
+    ├── tela_nome_usuario.dart
+    └── [other UI files]
+```
+
+#### After (Feature-Based Structure)
+```
+lib/
+├── main.dart
+└── src/
+    ├── common/           # Shared components
+    ├── features/         # Feature-specific code
+    └── utils/           # Utility functions
+```
+
+### Key Architectural Improvements
+
+#### 1. Separation of Concerns
+- **Common**: Shared models, services, providers, and widgets
+- **Features**: Game flow organized by phases (1-4)
+- **Logic/UI Separation**: Clear separation within each feature
+
+#### 2. Enhanced State Management
+- Feature-specific providers instead of monolithic providers.dart
+- Dedicated placement and gameplay state management
+- Multi-instance coordination capabilities
+
+#### 3. New Service Layer
+- `UserPreferences`: Persistent user data management
+- `PlacementPersistence`: State recovery during disconnections
+- `MultiInstanceCoordinator`: Cross-instance communication
+
+#### 4. Improved File Organization
+- Numbered features following game flow (1_initial_setup → 4_game_results)
+- Logical grouping of related functionality
+- Clear import paths reflecting architecture
+
+#### 5. Enhanced Models
+- `GamePhase` and `PlacementStatus` enums for better state tracking
+- `PieceInventory` for robust piece management
+- `GameStateModels` for advanced state coordination
+
+### Migration Benefits
+
+- **Maintainability**: Easier to locate and modify feature-specific code
+- **Scalability**: New features can be added without affecting existing code
+- **Testing**: Feature isolation enables better unit testing
+- **Collaboration**: Multiple developers can work on different features simultaneously
+- **Code Reuse**: Common components are clearly separated and reusable
+
+### Import Path Changes
+
+All imports have been updated to reflect the new structure:
+```dart
+// Old
+import 'package:combatentes/modelos_jogo.dart';
+import 'package:combatentes/game_socket_service.dart';
+
+// New
+import 'package:combatentes/src/common/models/modelos_jogo.dart';
+import 'package:combatentes/src/common/services/game_socket_service.dart';
 ```
 
 ## Visual Design System

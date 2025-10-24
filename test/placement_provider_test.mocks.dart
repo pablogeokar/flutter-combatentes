@@ -6,9 +6,11 @@
 import 'dart:async' as _i5;
 import 'dart:ui' as _i6;
 
-import 'package:combatentes/modelos_jogo.dart' as _i4;
-import 'package:combatentes/placement_controller.dart' as _i3;
-import 'package:combatentes/placement_error_handler.dart' as _i2;
+import 'package:combatentes/src/common/models/modelos_jogo.dart' as _i4;
+import 'package:combatentes/src/features/2_piece_placement/logic/controllers/placement_controller.dart'
+    as _i3;
+import 'package:combatentes/src/features/2_piece_placement/logic/placement_error_handler.dart'
+    as _i2;
 import 'package:mockito/mockito.dart' as _i1;
 
 // ignore_for_file: type=lint
@@ -75,6 +77,14 @@ class MockPlacementController extends _i1.Mock
   @override
   void clearError() => super.noSuchMethod(
     Invocation.method(#clearError, []),
+    returnValueForMissingStub: null,
+  );
+
+  @override
+  void initializeMultiInstanceCoordinator(
+    _i4.PlacementGameState? initialState,
+  ) => super.noSuchMethod(
+    Invocation.method(#initializeMultiInstanceCoordinator, [initialState]),
     returnValueForMissingStub: null,
   );
 
@@ -182,6 +192,12 @@ class MockPlacementController extends _i1.Mock
             returnValue: _i5.Future<bool>.value(false),
           )
           as _i5.Future<bool>);
+
+  @override
+  void updateNetworkActivity() => super.noSuchMethod(
+    Invocation.method(#updateNetworkActivity, []),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i5.Future<bool> attemptManualReconnection() =>

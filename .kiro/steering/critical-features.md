@@ -80,6 +80,35 @@ This document outlines the most important features and bug fixes that are essent
 - Maintains responsiveness during active gameplay
 - Clear visual feedback about available time
 
+## 🏗️ Major Architecture Refactoring (October 2025)
+
+### Feature-Based Code Organization
+
+**Implementation**: Complete restructuring of the Flutter codebase
+
+- **Before**: Flat file structure with all components in root lib/ directory
+- **After**: Feature-based architecture with clear separation of concerns
+- **Benefits**: Improved maintainability, scalability, and team collaboration
+- **Structure**: Numbered features following game flow (1_initial_setup → 4_game_results)
+
+### New Service Layer
+
+**Implementation**: Enhanced service architecture
+
+- **UserPreferences**: Persistent user data management with file-based storage
+- **PlacementPersistence**: State recovery system for placement phase disconnections
+- **MultiInstanceCoordinator**: Cross-instance communication for enhanced multiplayer
+- **Enhanced Models**: New enums and state management classes
+
+### Improved State Management
+
+**Implementation**: Feature-specific state providers
+
+- **Placement Provider**: Dedicated state management for piece placement phase
+- **Game State Provider**: Enhanced gameplay state with disconnection handling
+- **Socket Provider**: Simplified WebSocket service management
+- **Multi-Instance State**: Coordination between multiple game instances
+
 ## 🚀 Essential Features
 
 ### Connection Status System

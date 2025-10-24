@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:combatentes/piece_inventory.dart';
-import 'package:combatentes/modelos_jogo.dart';
-import 'package:combatentes/placement_error_handler.dart';
+import 'package:combatentes/src/common/models/piece_inventory.dart';
+import 'package:combatentes/src/common/models/modelos_jogo.dart';
+import 'package:combatentes/src/features/2_piece_placement/logic/placement_error_handler.dart';
 
 void main() {
   group('PieceInventory Tests', () {
