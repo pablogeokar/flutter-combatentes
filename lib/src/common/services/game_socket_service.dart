@@ -806,10 +806,180 @@ class GameSocketService {
     });
   }
 
-  /// Para o keep-alive quando sair do posicionamento
+  /// Para o sistema de keep-alive
   void _stopKeepAlive() {
     _keepAliveTimer?.cancel();
     debugPrint('💓 Keep-alive parado');
+  }
+
+  /// Reconecta especificamente durante partida ativa com recuperação de estado
+  Future<bool> reconnectDuringActiveGame(
+    String url, {
+    String? nomeUsuario,
+    String? gameId,
+  }) async {
+    debugPrint('🔄 Iniciando reconexão durante partida ativa...');
+
+    try {
+      // Emite status de reconectando
+      _statusController.add(StatusConexao.conectando);
+
+      // Limpa estado anterior mas preserva informações importantes
+      try {
+        _channel?.sink.close();
+      } catch (e) {
+        // Ignora erros ao fechar conexão anterior
+      }
+
+      _channel = null;
+      _isConnecting = false;
+      _isConnected = false;
+      _nameConfirmed = false;
+
+      // Força fase de jogo para reconexão
+      _isInPlacementPhase = false;
+      debugPrint('🎯 Forçando fase de jogo para reconexão');
+
+      // Aguarda um pouco antes de reconectar
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      // Tenta reconectar
+      connect(url, nomeUsuario: nomeUsuario);
+
+      // Aguarda conexão, nome confirmado ou timeout
+      final completer = Completer<bool>();
+      late StreamSubscription statusSubscription;
+      late StreamSubscription gameStateSubscription;
+
+      // Escuta mudanças de status
+      statusSubscription = streamDeStatus.listen((status) {
+        debugPrint('🔄 Status durante reconexão de jogo: $status');
+
+        if (status == StatusConexao.conectado && _nameConfirmed) {
+          debugPrint('✅ Reconexão bem-sucedida - conectado e nome confirmado');
+          statusSubscription.cancel();
+          gameStateSubscription.cancel();
+          completer.complete(true);
+        } else if (status == StatusConexao.jogando) {
+          debugPrint('✅ Reconexão bem-sucedida - jogo em andamento');
+          statusSubscription.cancel();
+          gameStateSubscription.cancel();
+          completer.complete(true);
+        } else if (status == StatusConexao.erro) {
+          debugPrint('❌ Erro durante reconexão de jogo');
+          statusSubscription.cancel();
+          gameStateSubscription.cancel();
+          completer.complete(false);
+        }
+      });
+
+      // Escuta atualizações de estado do jogo para confirmar reconexão
+      gameStateSubscription = streamDeEstados.listen((estado) {
+        debugPrint(
+          '📨 Estado do jogo recebido durante reconexão: ${estado.pecas.length} peças',
+        );
+
+        // Se recebeu estado do jogo, significa que reconectou à partida
+        if (estado.pecas.isNotEmpty) {
+          debugPrint('✅ Reconexão à partida ativa confirmada');
+          statusSubscription.cancel();
+          gameStateSubscription.cancel();
+          completer.complete(true);
+        }
+      });
+
+      // Timeout de 20 segundos para reconexão de jogo ativo
+      Timer(const Duration(seconds: 20), () {
+        if (!completer.isCompleted) {
+          debugPrint('⏰ Timeout na reconexão durante jogo ativo');
+          statusSubscription.cancel();
+          gameStateSubscription.cancel();
+          completer.complete(false);
+        }
+      });
+
+      final result = await completer.future;
+      debugPrint('🔄 Resultado da reconexão de jogo: $result');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erro na reconexão durante jogo ativo: $e');
+      _statusController.add(StatusConexao.erro);
+      return false;
+    }
+  }
+
+  /// Envia mensagem de recuperação de estado do jogo
+  void requestGameStateRecovery({String? gameId}) {
+    if (gameId != null) {
+      _sendMessage({
+        'type': 'RECOVER_GAME_STATE',
+        'payload': {'gameId': gameId},
+      });
+      debugPrint('📤 Solicitação de recuperação de estado enviada: $gameId');
+    } else {
+      _sendMessage({'type': 'REQUEST_CURRENT_GAME_STATE', 'payload': {}});
+      debugPrint('📤 Solicitação de estado atual enviada');
+    }
+  }
+
+  /// Verifica se a conexão está estável para jogo ativo
+  bool get isStableForActiveGame {
+    if (!_isConnected || !_nameConfirmed) return false;
+
+    if (_lastMessageReceived == null) return false;
+
+    final timeSinceLastMessage = DateTime.now().difference(
+      _lastMessageReceived!,
+    );
+    return timeSinceLastMessage.inSeconds <
+        30; // Menos de 30s desde última mensagem
+  }
+
+  /// Força reconexão imediata durante jogo ativo (para casos críticos)
+  void forceReconnectDuringActiveGame(
+    String url,
+    String? nomeUsuario, {
+    String? gameId,
+  }) {
+    debugPrint('🚨 Forçando reconexão imediata durante jogo ativo');
+
+    // Para todos os timers
+    _connectionTimeout?.cancel();
+    _nameVerificationTimer?.cancel();
+    _heartbeatTimer?.cancel();
+    _keepAliveTimer?.cancel();
+
+    // Fecha conexão atual
+    try {
+      _channel?.sink.close();
+    } catch (e) {
+      // Ignora erros
+    }
+
+    _channel = null;
+    _isConnecting = false;
+    _isConnected = false;
+    _nameConfirmed = false;
+
+    // Preserva o nome do usuário para reconexão
+    if (nomeUsuario != null) {
+      _pendingUserName = nomeUsuario;
+      debugPrint('🔄 Nome preservado para reconexão forçada: $nomeUsuario');
+    }
+
+    // Força fase de jogo
+    _isInPlacementPhase = false;
+
+    // Reconecta imediatamente (sem delay)
+    debugPrint('🔄 Reconectando imediatamente ao jogo...');
+    connect(url, nomeUsuario: nomeUsuario);
+
+    // Solicita recuperação de estado após conexão
+    Future.delayed(const Duration(seconds: 2), () {
+      if (_isConnected) {
+        requestGameStateRecovery(gameId: gameId);
+      }
+    });
   }
 
   /// Força reconexão imediata durante posicionamento (para casos críticos)

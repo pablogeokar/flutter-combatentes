@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:combatentes/src/common/models/game_state_models.dart'; // Updated import
 import 'package:combatentes/src/common/models/modelos_jogo.dart'; // Updated import
 import 'package:combatentes/src/common/services/user_preferences.dart'; // Updated import
+import 'package:combatentes/src/common/services/game_persistence.dart'; // NEW import
 import 'package:combatentes/src/features/3_gameplay/logic/controllers/game_controller.dart'; // Updated import
 import 'package:combatentes/src/common/providers/socket_provider.dart'; // Updated import
 
@@ -15,6 +16,8 @@ final gameStateProvider =
 class GameStateNotifier extends StateNotifier<TelaJogoState> {
   final Ref _ref;
   final GameController _gameController = GameController();
+  bool _hasActiveReconnection = false;
+  String? _currentServerAddress;
 
   GameStateNotifier(this._ref) : super(const TelaJogoState()) {
     _init();
@@ -67,6 +70,9 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
           statusConexao: StatusConexao.jogando,
           limparErro: true,
         );
+
+        // Salva automaticamente o estado do jogo para recuperação
+        _saveGameStateForRecovery(novoEstado);
       });
 
       socketService.streamDeErros.listen((mensagemErro) {
@@ -84,6 +90,12 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
           state = state.copyWith(estadoJogo: null, limparSelecao: true);
         }
 
+        // Se houve erro de conexão durante jogo ativo, tenta reconectar
+        if (novoStatus == StatusConexao.erro ||
+            novoStatus == StatusConexao.desconectado) {
+          _handleConnectionLoss();
+        }
+
         // Se houve erro, para de conectar
         if (novoStatus == StatusConexao.erro) {
           state = state.copyWith(conectando: false);
@@ -94,7 +106,16 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
       Future.microtask(() async {
         try {
           final serverAddress = await UserPreferences.getServerAddress();
-          socketService.connect(serverAddress, nomeUsuario: nomeUsuario);
+          _currentServerAddress = serverAddress;
+
+          // Verifica se há um jogo ativo salvo para recuperar
+          final activeGame = await GamePersistence.loadActiveGameState();
+          if (activeGame != null && activeGame.isValid) {
+            debugPrint('🔄 Jogo ativo encontrado, tentando recuperar...');
+            await _attemptGameRecovery(activeGame);
+          } else {
+            socketService.connect(serverAddress, nomeUsuario: nomeUsuario);
+          }
         } catch (e) {
           state = state.copyWith(
             conectando: false,
@@ -790,6 +811,222 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
       socketService.reconnect(serverAddress, nomeUsuario: nomeUsuario);
     } catch (e) {
       state = state.copyWith(conectando: false, erro: 'Erro ao reconectar: $e');
+    }
+  }
+
+  /// Salva automaticamente o estado do jogo para recuperação em caso de desconexão
+  Future<void> _saveGameStateForRecovery(EstadoJogo gameState) async {
+    try {
+      if (state.nomeUsuario != null && _currentServerAddress != null) {
+        await GamePersistence.saveActiveGameState(
+          gameState: gameState,
+          playerName: state.nomeUsuario!,
+          serverAddress: _currentServerAddress!,
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao salvar estado para recuperação: $e');
+    }
+  }
+
+  /// Tenta recuperar um jogo ativo salvo
+  Future<void> _attemptGameRecovery(ActiveGameState activeGame) async {
+    try {
+      debugPrint(
+        '🔄 Tentando recuperar jogo salvo há ${activeGame.ageInMinutes} minutos',
+      );
+
+      state = state.copyWith(
+        conectando: true,
+        nomeUsuario: activeGame.playerName,
+        statusConexao: StatusConexao.conectando,
+      );
+
+      final socketService = _ref.read(gameSocketProvider);
+
+      // Tenta reconectar ao servidor
+      final success = await socketService.reconnectDuringActiveGame(
+        activeGame.serverAddress,
+        nomeUsuario: activeGame.playerName,
+        gameId: activeGame.gameId,
+      );
+
+      if (success) {
+        debugPrint('✅ Reconexão bem-sucedida, restaurando estado do jogo');
+
+        // Restaura o estado do jogo
+        state = state.copyWith(
+          estadoJogo: activeGame.gameState,
+          conectando: false,
+          statusConexao: StatusConexao.jogando,
+          limparErro: true,
+        );
+
+        // Solicita estado atualizado do servidor
+        socketService.requestGameStateRecovery(gameId: activeGame.gameId);
+      } else {
+        debugPrint('❌ Falha na recuperação, limpando estado salvo');
+        await GamePersistence.clearActiveGameState();
+
+        // Conecta normalmente
+        socketService.connect(
+          activeGame.serverAddress,
+          nomeUsuario: activeGame.playerName,
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Erro na recuperação do jogo: $e');
+      await GamePersistence.clearActiveGameState();
+
+      state = state.copyWith(
+        conectando: false,
+        statusConexao: StatusConexao.erro,
+        erro: 'Erro ao recuperar jogo: $e',
+      );
+    }
+  }
+
+  /// Trata perda de conexão durante jogo ativo
+  Future<void> _handleConnectionLoss() async {
+    // Evita múltiplas tentativas simultâneas
+    if (_hasActiveReconnection) {
+      debugPrint('🔄 Reconexão já em andamento, ignorando');
+      return;
+    }
+
+    // Só tenta reconectar se havia um jogo ativo
+    if (state.estadoJogo == null || state.estadoJogo!.pecas.isEmpty) {
+      debugPrint('🔄 Sem jogo ativo, não tentando reconectar');
+      return;
+    }
+
+    _hasActiveReconnection = true;
+    debugPrint('🚨 Perda de conexão detectada durante jogo ativo');
+
+    try {
+      // Salva o estado atual antes de tentar reconectar
+      await _saveGameStateForRecovery(state.estadoJogo!);
+
+      // Aguarda um pouco antes de tentar reconectar
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (_currentServerAddress != null && state.nomeUsuario != null) {
+        final socketService = _ref.read(gameSocketProvider);
+
+        // Tenta reconectar durante jogo ativo
+        final success = await socketService.reconnectDuringActiveGame(
+          _currentServerAddress!,
+          nomeUsuario: state.nomeUsuario!,
+        );
+
+        if (success) {
+          debugPrint('✅ Reconexão automática bem-sucedida');
+
+          // Solicita estado atualizado
+          socketService.requestGameStateRecovery();
+
+          state = state.copyWith(
+            conectando: false,
+            statusConexao: StatusConexao.jogando,
+            limparErro: true,
+          );
+        } else {
+          debugPrint('❌ Reconexão automática falhou');
+
+          state = state.copyWith(
+            conectando: false,
+            statusConexao: StatusConexao.erro,
+            erro: 'Conexão perdida. Tente reconectar manualmente.',
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Erro ao tratar perda de conexão: $e');
+
+      state = state.copyWith(
+        conectando: false,
+        statusConexao: StatusConexao.erro,
+        erro: 'Erro de conexão: $e',
+      );
+    } finally {
+      _hasActiveReconnection = false;
+    }
+  }
+
+  /// Tenta reconectar manualmente durante jogo ativo
+  Future<bool> attemptManualReconnection() async {
+    if (_hasActiveReconnection) {
+      debugPrint('🔄 Reconexão já em andamento');
+      return false;
+    }
+
+    if (_currentServerAddress == null || state.nomeUsuario == null) {
+      debugPrint('❌ Informações de conexão não disponíveis');
+      return false;
+    }
+
+    _hasActiveReconnection = true;
+
+    try {
+      state = state.copyWith(
+        conectando: true,
+        statusConexao: StatusConexao.conectando,
+        limparErro: true,
+      );
+
+      final socketService = _ref.read(gameSocketProvider);
+
+      final success = await socketService.reconnectDuringActiveGame(
+        _currentServerAddress!,
+        nomeUsuario: state.nomeUsuario!,
+      );
+
+      if (success) {
+        debugPrint('✅ Reconexão manual bem-sucedida');
+
+        // Solicita estado atualizado
+        socketService.requestGameStateRecovery();
+
+        state = state.copyWith(
+          conectando: false,
+          statusConexao: StatusConexao.jogando,
+          limparErro: true,
+        );
+
+        return true;
+      } else {
+        debugPrint('❌ Reconexão manual falhou');
+
+        state = state.copyWith(
+          conectando: false,
+          statusConexao: StatusConexao.erro,
+          erro: 'Falha na reconexão. Servidor pode estar indisponível.',
+        );
+
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Erro na reconexão manual: $e');
+
+      state = state.copyWith(
+        conectando: false,
+        statusConexao: StatusConexao.erro,
+        erro: 'Erro na reconexão: $e',
+      );
+
+      return false;
+    } finally {
+      _hasActiveReconnection = false;
+    }
+  }
+
+  /// Limpa o estado salvo do jogo (chamado quando jogo termina normalmente)
+  Future<void> clearSavedGameState() async {
+    try {
+      await GamePersistence.clearActiveGameState();
+      debugPrint('✅ Estado salvo do jogo limpo');
+    } catch (e) {
+      debugPrint('❌ Erro ao limpar estado salvo: $e');
     }
   }
 }

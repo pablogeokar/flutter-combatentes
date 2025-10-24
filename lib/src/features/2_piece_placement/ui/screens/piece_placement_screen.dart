@@ -10,7 +10,6 @@ import 'package:combatentes/src/common/models/piece_inventory.dart';
 
 import 'package:combatentes/src/common/providers/socket_provider.dart';
 
-
 import 'package:combatentes/src/features/2_piece_placement/ui/widgets/piece_inventory_widget.dart';
 import 'package:combatentes/src/features/2_piece_placement/ui/widgets/placement_board_widget.dart';
 
@@ -265,9 +264,7 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
               maintainState: true,
               child: Padding(
                 padding: const EdgeInsets.only(right: 16.0),
-                child: SingleChildScrollView(
-                  child: _buildInventorySection(),
-                ),
+                child: SingleChildScrollView(child: _buildInventorySection()),
               ),
             ),
           ),
@@ -396,7 +393,7 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-            color: Colors.white.withAlpha((255 * 0.1).round()),
+              color: Colors.white.withAlpha((255 * 0.1).round()),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Image.asset(
@@ -426,7 +423,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
           ),
         ),
         child: Container(
-          decoration: BoxDecoration(color: Colors.black.withAlpha((255 * 0.7).round())),
+          decoration: BoxDecoration(
+            color: Colors.black.withAlpha((255 * 0.7).round()),
+          ),
         ),
       ),
       foregroundColor: Colors.white,
@@ -604,7 +603,7 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
                 ? 'Iniciando... ${_controller.countdownSeconds}s'
                 : state.localStatus == PlacementStatus.ready
                 ? 'Aguardando Oponente'
-                : 'CONFIRMAR POSICIONAMENTO',
+                : 'PRONTO',
             onPressed: canConfirm && !_controller.isGameStarting
                 ? _handleReadyPressed
                 : null,

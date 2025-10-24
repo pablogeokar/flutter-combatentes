@@ -15,6 +15,8 @@ import 'package:combatentes/src/features/4_game_results/ui/screens/victory_defea
 import 'package:combatentes/src/features/1_initial_setup/ui/dialogs/server_config_dialog.dart';
 import 'package:combatentes/src/features/1_initial_setup/ui/screens/matchmaking_screen.dart';
 import 'package:combatentes/src/common/widgets/military_theme_widgets.dart';
+import 'package:combatentes/src/features/3_gameplay/ui/dialogs/game_reconnection_dialog.dart';
+import 'package:flutter/foundation.dart';
 
 /// A tela principal do jogo, agora como um ConsumerStatefulWidget que reage às mudanças de estado do Riverpod.
 class TelaJogo extends ConsumerStatefulWidget {
@@ -911,8 +913,92 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     );
   }
 
-  /// Tenta reconectar ao servidor
-  void _attemptReconnection(BuildContext context, WidgetRef ref) {
+  /// Tenta reconectar ao servidor com sistema inteligente
+  Future<void> _attemptReconnection(BuildContext context, WidgetRef ref) async {
+    final uiState = ref.read(gameStateProvider);
+
+    // Se há um jogo ativo, usa reconexão inteligente
+    if (uiState.estadoJogo != null && uiState.estadoJogo!.pecas.isNotEmpty) {
+      await _attemptGameReconnection(context, ref);
+    } else {
+      // Reconexão simples para matchmaking
+      await _attemptSimpleReconnection(context, ref);
+    }
+  }
+
+  /// Reconexão durante jogo ativo
+  Future<void> _attemptGameReconnection(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final result = await showGameReconnectionDialog(
+      context: context,
+      title: 'Conexão Perdida',
+      message:
+          'A conexão com o servidor foi perdida durante a partida.\n\nDeseja tentar reconectar e continuar o jogo?',
+      showReconnectOption: true,
+    );
+
+    if (result == GameReconnectionResult.reconnect) {
+      // Mostra dialog de reconectando
+      showReconnectingDialog(
+        context: context,
+        message:
+            'Reconectando à partida...\n\nTentando recuperar o estado do jogo.',
+      );
+
+      try {
+        // Tenta reconexão inteligente
+        final success = await ref
+            .read(gameStateProvider.notifier)
+            .attemptManualReconnection();
+
+        // Fecha dialog de reconectando
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+
+        if (success) {
+          // Sucesso - mostra confirmação
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 12),
+                    Text('Reconectado com sucesso!'),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          // Falha - oferece opções
+          if (context.mounted) {
+            await _showReconnectionFailedDialog(context, ref);
+          }
+        }
+      } catch (e) {
+        // Fecha dialog de reconectando
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          await _showReconnectionFailedDialog(context, ref);
+        }
+      }
+    } else if (result == GameReconnectionResult.backToMenu) {
+      // Volta ao menu principal
+      await _voltarMenuPrincipal(context);
+    }
+  }
+
+  /// Reconexão simples para matchmaking
+  Future<void> _attemptSimpleReconnection(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     // Limpa o erro atual
     ref.read(gameStateProvider.notifier).clearError();
 
@@ -920,26 +1006,50 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     ref.read(gameStateProvider.notifier).reconnect();
 
     // Mostra feedback visual
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
               ),
-            ),
-            SizedBox(width: 12),
-            Text('Tentando reconectar...'),
-          ],
+              SizedBox(width: 12),
+              Text('Tentando reconectar...'),
+            ],
+          ),
+          backgroundColor: Color(0xFF2E7D32),
+          duration: Duration(seconds: 3),
         ),
-        backgroundColor: Color(0xFF2E7D32),
-        duration: Duration(seconds: 3),
-      ),
+      );
+    }
+  }
+
+  /// Mostra dialog quando a reconexão falha
+  Future<void> _showReconnectionFailedDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final result = await showGameReconnectionDialog(
+      context: context,
+      title: 'Reconexão Falhou',
+      message:
+          'Não foi possível reconectar ao servidor.\n\nO servidor pode estar indisponível ou a partida pode ter expirado.',
+      showReconnectOption: true,
     );
+
+    if (result == GameReconnectionResult.reconnect) {
+      // Tenta novamente
+      await _attemptGameReconnection(context, ref);
+    } else if (result == GameReconnectionResult.backToMenu) {
+      // Volta ao menu principal
+      await _voltarMenuPrincipal(context);
+    }
   }
 
   /// Lida com as ações do menu do usuário
@@ -1291,9 +1401,19 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
   }
 
   /// Volta para o menu principal (tela de nome)
-  void _voltarMenuPrincipal(BuildContext context) {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const TelaNomeUsuario()),
-    );
+  Future<void> _voltarMenuPrincipal(BuildContext context) async {
+    // Limpa o estado salvo do jogo antes de sair
+    try {
+      final notifier = ref.read(gameStateProvider.notifier);
+      await notifier.clearSavedGameState();
+    } catch (e) {
+      debugPrint('❌ Erro ao limpar estado salvo: $e');
+    }
+
+    if (context.mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const TelaNomeUsuario()),
+      );
+    }
   }
 }

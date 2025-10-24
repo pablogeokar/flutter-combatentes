@@ -54,6 +54,35 @@ This document outlines the most important features and bug fixes that are essent
 - Improved error handling and logging throughout the connection process
 - MatchmakingScreen now monitors connection state and triggers corrective actions
 
+### Active Game Reconnection System (October 2025)
+
+**Problem**: Players losing connection during active games and unable to recover their match state
+**Root Cause**: No system to persist and recover game state during network interruptions
+
+**Solution**: Intelligent game state persistence and recovery system
+
+- **Automatic State Persistence**: Game state automatically saved every update for recovery
+- **Smart Reconnection Detection**: Distinguishes between placement and active game disconnections
+- **Game State Recovery**: Attempts to reconnect and restore exact game state
+- **Connection Quality Monitoring**: Tracks connection stability and adjusts timeouts accordingly
+- **User-Friendly Reconnection Dialogs**: Clear options for reconnection vs returning to menu
+- **Fallback Mechanisms**: Multiple strategies for connection recovery
+
+**Technical Implementation**:
+- `GamePersistence` service for automatic state saving with 2-hour expiration
+- `GameReconnectionDialog` with animated feedback and clear user options
+- Enhanced `GameSocketService` with `reconnectDuringActiveGame()` method
+- `ConnectionMonitor` service for network quality assessment
+- Automatic state cleanup when games end normally
+- Integration with existing timeout and heartbeat systems
+
+**User Experience Improvements**:
+- Seamless game continuation after brief network interruptions
+- Clear feedback during reconnection attempts with progress indicators
+- Intelligent timeout adjustments based on connection stability
+- Automatic recovery attempts with manual fallback options
+- Proper state cleanup preventing stale game data
+
 ### Dynamic Timeout System for Game Phases (October 2025)
 
 **Problem**: Fixed 60-second timeout causing false disconnections during piece placement phase
