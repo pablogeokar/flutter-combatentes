@@ -789,12 +789,16 @@ class GameSocketService {
       if (_channel != null && _isConnected) {
         // Envia uma mensagem simples que o servidor reconhece
         try {
-          // Usa mensagem de status de placement que o servidor conhece
-          _sendMessage({
-            'type': 'PLACEMENT_STATUS_REQUEST',
-            'payload': {'keepAlive': true},
-          });
-          debugPrint('💓 Keep-alive (PLACEMENT_STATUS_REQUEST) enviado');
+          // Envia mensagem de nome como keep-alive (servidor sempre reconhece)
+          if (_pendingUserName != null) {
+            _sendMessage({
+              'type': 'definirNome',
+              'payload': {'nome': _pendingUserName},
+            });
+            debugPrint(
+              '💓 Keep-alive (definirNome) enviado: $_pendingUserName',
+            );
+          }
         } catch (e) {
           debugPrint('❌ Erro ao enviar keep-alive: $e');
           timer.cancel();
@@ -843,10 +847,10 @@ class GameSocketService {
       // Aguarda um pouco antes de reconectar
       await Future.delayed(const Duration(milliseconds: 1500));
 
-      // Tenta reconectar
+      // Tenta reconectar usando o sistema normal
       connect(url, nomeUsuario: nomeUsuario);
 
-      // Aguarda conexão, nome confirmado ou timeout
+      // Aguarda conexão e confirmação
       final completer = Completer<bool>();
       late StreamSubscription statusSubscription;
       late StreamSubscription gameStateSubscription;
@@ -857,9 +861,14 @@ class GameSocketService {
 
         if (status == StatusConexao.conectado && _nameConfirmed) {
           debugPrint('✅ Reconexão bem-sucedida - conectado e nome confirmado');
-          statusSubscription.cancel();
-          gameStateSubscription.cancel();
-          completer.complete(true);
+          // Aguarda um pouco para ver se recebe estado do jogo
+          Timer(const Duration(seconds: 2), () {
+            if (!completer.isCompleted) {
+              statusSubscription.cancel();
+              gameStateSubscription.cancel();
+              completer.complete(true);
+            }
+          });
         } else if (status == StatusConexao.jogando) {
           debugPrint('✅ Reconexão bem-sucedida - jogo em andamento');
           statusSubscription.cancel();
@@ -888,8 +897,8 @@ class GameSocketService {
         }
       });
 
-      // Timeout de 20 segundos para reconexão de jogo ativo
-      Timer(const Duration(seconds: 20), () {
+      // Timeout de 15 segundos para reconexão de jogo ativo
+      Timer(const Duration(seconds: 15), () {
         if (!completer.isCompleted) {
           debugPrint('⏰ Timeout na reconexão durante jogo ativo');
           statusSubscription.cancel();
@@ -910,15 +919,19 @@ class GameSocketService {
 
   /// Envia mensagem de recuperação de estado do jogo
   void requestGameStateRecovery({String? gameId}) {
-    if (gameId != null) {
+    // Em vez de criar novas mensagens, usa o sistema existente do servidor
+    // O servidor já envia o estado atual quando reconecta
+    debugPrint(
+      '📤 Reconexão estabelecida - servidor enviará estado automaticamente',
+    );
+
+    // Se necessário, pode enviar uma mensagem de status para "acordar" o servidor
+    if (_pendingUserName != null) {
       _sendMessage({
-        'type': 'RECOVER_GAME_STATE',
-        'payload': {'gameId': gameId},
+        'type': 'definirNome',
+        'payload': {'nome': _pendingUserName},
       });
-      debugPrint('📤 Solicitação de recuperação de estado enviada: $gameId');
-    } else {
-      _sendMessage({'type': 'REQUEST_CURRENT_GAME_STATE', 'payload': {}});
-      debugPrint('📤 Solicitação de estado atual enviada');
+      debugPrint('📤 Reenviando nome após reconexão: $_pendingUserName');
     }
   }
 
@@ -974,12 +987,8 @@ class GameSocketService {
     debugPrint('🔄 Reconectando imediatamente ao jogo...');
     connect(url, nomeUsuario: nomeUsuario);
 
-    // Solicita recuperação de estado após conexão
-    Future.delayed(const Duration(seconds: 2), () {
-      if (_isConnected) {
-        requestGameStateRecovery(gameId: gameId);
-      }
-    });
+    // Estado será enviado automaticamente pelo servidor após reconexão
+    debugPrint('✅ Reconexão forçada iniciada - aguardando estado do servidor');
   }
 
   /// Força reconexão imediata durante posicionamento (para casos críticos)

@@ -862,8 +862,8 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
           limparErro: true,
         );
 
-        // Solicita estado atualizado do servidor
-        socketService.requestGameStateRecovery(gameId: activeGame.gameId);
+        // Estado será enviado automaticamente pelo servidor após reconexão
+        debugPrint('✅ Aguardando estado do servidor após reconexão');
       } else {
         debugPrint('❌ Falha na recuperação, limpando estado salvo');
         await GamePersistence.clearActiveGameState();
@@ -922,8 +922,8 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
         if (success) {
           debugPrint('✅ Reconexão automática bem-sucedida');
 
-          // Solicita estado atualizado
-          socketService.requestGameStateRecovery();
+          // Estado será enviado automaticamente pelo servidor
+          debugPrint('✅ Aguardando estado atualizado do servidor');
 
           state = state.copyWith(
             conectando: false,
@@ -984,8 +984,8 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
       if (success) {
         debugPrint('✅ Reconexão manual bem-sucedida');
 
-        // Solicita estado atualizado
-        socketService.requestGameStateRecovery();
+        // Estado será enviado automaticamente pelo servidor
+        debugPrint('✅ Aguardando estado atualizado do servidor');
 
         state = state.copyWith(
           conectando: false,
