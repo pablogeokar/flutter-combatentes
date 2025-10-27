@@ -11,6 +11,7 @@ import 'package:combatentes/src/features/3_gameplay/ui/screens/game_screen.dart'
 import 'package:combatentes/src/features/2_piece_placement/ui/screens/piece_placement_screen.dart';
 import 'package:combatentes/src/features/1_initial_setup/ui/screens/matchmaking_screen.dart';
 import 'package:combatentes/src/common/widgets/military_theme_widgets.dart';
+import 'package:combatentes/src/common/widgets/military_background_wrapper.dart';
 
 /// Tela que gerencia o fluxo completo do jogo após o matchmaking.
 /// Esta tela assume que já há 2 jogadores conectados.
@@ -47,15 +48,32 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
       return;
     }
 
-    // Verifica se o placement já foi inicializado no provider
+    // Limpa qualquer estado antigo do placement antes de verificar
+    Future.microtask(() async {
+      await ref.read(placementStateProvider.notifier).clearAllState();
+    });
+
+    // Verifica se o placement já foi inicializado no provider (após limpeza)
     final placementState = ref.read(placementStateProvider);
     if (placementState.placementState != null) {
-      debugPrint('🔍 Placement já existe no provider, ignorando');
-      _hasInitialized = true;
-      _placementState = placementState.placementState;
-      setState(() {});
-      debugPrint('🔍 UI atualizada para mostrar placement do provider');
-      return;
+      debugPrint(
+        '🔍 Placement já existe no provider após limpeza, verificando validade...',
+      );
+
+      // Só usa se for um estado muito recente (menos de 2 minutos)
+      final gameState = ref.read(gameStateProvider);
+      if (gameState.estadoJogo != null && gameState.estadoJogo!.pecas.isEmpty) {
+        _hasInitialized = true;
+        _placementState = placementState.placementState;
+        setState(() {});
+        debugPrint(
+          '🔍 UI atualizada para mostrar placement válido do provider',
+        );
+        return;
+      } else {
+        debugPrint('🗑️ Placement do provider inválido, limpando...');
+        ref.read(placementStateProvider.notifier).clearAllState();
+      }
     }
 
     _hasInitialized = true;
@@ -218,13 +236,24 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
 
   void _startGamePhase() {
     debugPrint('🎮 _startGamePhase iniciado');
-    _transferPlacedPiecesToGame();
-    setState(() {
-      _currentPhase = GameFlowPhase.game;
-    });
-    debugPrint('🎮 Fase alterada para GameFlowPhase.game');
-    ref.read(placementStateProvider.notifier).resetToGame();
-    debugPrint('🎮 Placement provider resetado');
+
+    try {
+      debugPrint('🎮 Transferindo peças para o jogo...');
+      _transferPlacedPiecesToGame();
+
+      debugPrint('🎮 Alterando estado para GameFlowPhase.game...');
+      setState(() {
+        _currentPhase = GameFlowPhase.game;
+      });
+      debugPrint('🎮 Fase alterada para GameFlowPhase.game');
+
+      debugPrint('🎮 Resetando placement provider...');
+      ref.read(placementStateProvider.notifier).resetToGame();
+      debugPrint('🎮 Placement provider resetado com sucesso');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Erro em _startGamePhase: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
+    }
   }
 
   Future<void> _transferPlacedPiecesToGame() async {
@@ -243,8 +272,11 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
   }
 
   void _handleGameStart() {
+    debugPrint('🎮 GameFlowScreen: _handleGameStart chamado');
     _savePlacedPieces();
+    debugPrint('🎮 GameFlowScreen: Peças salvas, iniciando _startGamePhase');
     _startGamePhase();
+    debugPrint('🎮 GameFlowScreen: _startGamePhase concluído');
   }
 
   void _savePlacedPieces() {
@@ -289,6 +321,11 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
       _handlePlacementStateChange(previous, current);
     });
 
+    // Envolve tudo em MilitaryBackgroundWrapper para garantir background consistente
+    return MilitaryBackgroundWrapper(child: _buildCurrentPhaseContent());
+  }
+
+  Widget _buildCurrentPhaseContent() {
     switch (_currentPhase) {
       case GameFlowPhase.placement:
         if (_placementState == null) {
@@ -308,70 +345,72 @@ class _GameFlowScreenState extends ConsumerState<GameFlowScreen> {
   Widget _buildLoadingScreen() {
     return Scaffold(
       body: MilitaryThemeWidgets.militaryBackground(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  MilitaryThemeWidgets.primaryGreen,
-                ),
+        child: _buildLoadingContent(),
+      ),
+    );
+  }
+
+  Widget _buildLoadingContent() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(
+              MilitaryThemeWidgets.primaryGreen,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Preparando posicionamento...',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 24),
+          // Informação sobre timeout durante posicionamento
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.symmetric(horizontal: 32),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: MilitaryThemeWidgets.primaryGreen.withValues(alpha: 0.3),
+                width: 1,
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Preparando posicionamento...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: MilitaryThemeWidgets.primaryGreen,
+                  size: 20,
                 ),
-              ),
-              const SizedBox(height: 24),
-              // Informação sobre timeout durante posicionamento
-              Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.symmetric(horizontal: 32),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: MilitaryThemeWidgets.primaryGreen.withValues(
-                      alpha: 0.3,
-                    ),
-                    width: 1,
+                const SizedBox(height: 8),
+                Text(
+                  'Tempo para Posicionamento',
+                  style: TextStyle(
+                    color: MilitaryThemeWidgets.primaryGreen,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: MilitaryThemeWidgets.primaryGreen,
-                      size: 20,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tempo para Posicionamento',
-                      style: TextStyle(
-                        color: MilitaryThemeWidgets.primaryGreen,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Você tem até 5 minutos para posicionar suas peças.\nPense bem na sua estratégia!',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  'Você tem até 5 minutos para posicionar suas peças.\nPense bem na sua estratégia!',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

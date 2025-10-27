@@ -169,6 +169,9 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     });
 
     return Scaffold(
+      backgroundColor: const Color(
+        0xFF1B5E20,
+      ), // Verde militar escuro como fallback
       appBar: AppBar(
         title: Row(
           children: [

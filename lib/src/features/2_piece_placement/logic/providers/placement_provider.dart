@@ -1,9 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:combatentes/src/common/models/modelos_jogo.dart';
 import 'package:combatentes/src/features/2_piece_placement/logic/controllers/placement_controller.dart';
 import 'package:combatentes/src/features/2_piece_placement/logic/placement_error_handler.dart';
 import 'package:combatentes/src/common/providers/socket_provider.dart';
-
 
 import 'package:combatentes/src/common/services/placement_persistence.dart';
 
@@ -147,15 +147,24 @@ class PlacementStateNotifier extends StateNotifier<PlacementScreenState> {
       final shouldNavigate =
           controllerState.gamePhase == GamePhase.gameInProgress;
 
-      state = state.copyWith(
-        placementState: controllerState,
-        shouldNavigateToGame: shouldNavigate,
-        error: controllerError,
-        isRetrying: isRetrying,
-        clearError: controllerError == null,
-      );
-    } else if (controllerError != null) {
-      // Atualiza apenas o erro se não há estado
+      // Evita atualizações desnecessárias que causam loops
+      if (state.placementState?.gameId != controllerState.gameId ||
+          state.placementState?.localStatus != controllerState.localStatus ||
+          state.placementState?.opponentStatus !=
+              controllerState.opponentStatus ||
+          state.placementState?.gamePhase != controllerState.gamePhase ||
+          state.shouldNavigateToGame != shouldNavigate ||
+          state.error != controllerError) {
+        state = state.copyWith(
+          placementState: controllerState,
+          shouldNavigateToGame: shouldNavigate,
+          error: controllerError,
+          isRetrying: isRetrying,
+          clearError: controllerError == null,
+        );
+      }
+    } else if (controllerError != null && state.error != controllerError) {
+      // Atualiza apenas o erro se não há estado e o erro mudou
       state = state.copyWith(error: controllerError, isRetrying: isRetrying);
     }
   }
@@ -289,6 +298,26 @@ class PlacementStateNotifier extends StateNotifier<PlacementScreenState> {
 
     // Reset do estado
     state = const PlacementScreenState();
+  }
+
+  /// Limpa completamente o estado do placement (usado ao iniciar nova sessão).
+  Future<void> clearAllState() async {
+    debugPrint('🗑️ Limpando todo o estado do placement...');
+
+    // Limpa estado persistido
+    await clearPersistedState();
+
+    // Remove listener se existir
+    _controller?.removeListener(_onControllerChanged);
+
+    // Reset do controller
+    _controller?.reset();
+    _controller = null;
+
+    // Reset completo do estado
+    state = const PlacementScreenState();
+
+    debugPrint('✅ Estado do placement limpo completamente');
   }
 
   @override

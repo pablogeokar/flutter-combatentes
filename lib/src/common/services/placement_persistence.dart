@@ -18,6 +18,10 @@ class PlacementPersistence {
   static PlacementGameState? _cachedState;
   static DateTime? _cacheTimestamp;
 
+  /// Último estado salvo para evitar salvamentos duplicados
+  static String? _lastSavedStateHash;
+  static DateTime? _lastSaveTime;
+
   /// Obtém o arquivo de persistência no diretório atual.
   static File _getPersistenceFile() {
     return File(_fileName);
@@ -26,18 +30,34 @@ class PlacementPersistence {
   /// Salva o estado atual de posicionamento.
   static Future<bool> savePlacementState(PlacementGameState state) async {
     try {
+      // Cria hash do estado para evitar salvamentos duplicados
+      final stateJson = jsonEncode(state.toJson());
+      final stateHash = stateJson.hashCode.toString();
+
+      // Verifica se é o mesmo estado e se foi salvo recentemente
+      final now = DateTime.now();
+      if (_lastSavedStateHash == stateHash && _lastSaveTime != null) {
+        final timeSinceLastSave = now.difference(_lastSaveTime!);
+        if (timeSinceLastSave.inSeconds < 5) {
+          // Mesmo estado salvo há menos de 5 segundos, ignora
+          return true;
+        }
+      }
+
       final file = _getPersistenceFile();
       final data = {
         _versionKey: _currentVersion,
-        _timestampKey: DateTime.now().toIso8601String(),
+        _timestampKey: now.toIso8601String(),
         _gameStateKey: state.toJson(),
       };
 
       await file.writeAsString(jsonEncode(data));
 
-      // Atualiza cache
+      // Atualiza cache e controle de duplicação
       _cachedState = state;
-      _cacheTimestamp = DateTime.now();
+      _cacheTimestamp = now;
+      _lastSavedStateHash = stateHash;
+      _lastSaveTime = now;
 
       return true;
     } catch (e) {

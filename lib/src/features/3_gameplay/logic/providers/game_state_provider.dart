@@ -108,12 +108,22 @@ class GameStateNotifier extends StateNotifier<TelaJogoState> {
           final serverAddress = await UserPreferences.getServerAddress();
           _currentServerAddress = serverAddress;
 
-          // Verifica se há um jogo ativo salvo para recuperar
+          // Verifica se há um jogo ativo salvo para recuperar (apenas se muito recente)
           final activeGame = await GamePersistence.loadActiveGameState();
-          if (activeGame != null && activeGame.isValid) {
-            debugPrint('🔄 Jogo ativo encontrado, tentando recuperar...');
+          if (activeGame != null &&
+              activeGame.isValid &&
+              activeGame.ageInMinutes < 5) {
+            debugPrint(
+              '🔄 Jogo ativo recente encontrado (${activeGame.ageInMinutes}min), tentando recuperar...',
+            );
             await _attemptGameRecovery(activeGame);
           } else {
+            if (activeGame != null) {
+              debugPrint(
+                '🗑️ Jogo salvo muito antigo (${activeGame.ageInMinutes}min), limpando...',
+              );
+              await GamePersistence.clearActiveGameState();
+            }
             socketService.connect(serverAddress, nomeUsuario: nomeUsuario);
           }
         } catch (e) {

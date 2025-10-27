@@ -49,6 +49,14 @@ class _MatchmakingScreenState extends ConsumerState<MatchmakingScreen>
       _isConnecting = true;
     });
 
+    // Limpa estados antigos de jogos/placement antes de iniciar nova busca
+    try {
+      await ref.read(gameStateProvider.notifier).clearSavedGameState();
+      debugPrint('🗑️ Estados antigos limpos no matchmaking');
+    } catch (e) {
+      debugPrint('⚠️ Erro ao limpar estados antigos: $e');
+    }
+
     try {
       final nomeUsuario = await UserPreferences.getUserName();
       final serverAddress = await UserPreferences.getServerAddress();

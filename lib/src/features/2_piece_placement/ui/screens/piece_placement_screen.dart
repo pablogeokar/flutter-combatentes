@@ -203,6 +203,9 @@ class _PiecePlacementScreenState extends ConsumerState<PiecePlacementScreen>
         }
       },
       child: Scaffold(
+        backgroundColor: const Color(
+          0xFF1B5E20,
+        ), // Verde militar escuro como fallback
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(kToolbarHeight),
           child: _buildHeader(),

@@ -49,16 +49,25 @@ class GameSocketService {
       return;
     }
 
-    // Controle de rate limiting para evitar spam de conexões
+    if (_isConnected) {
+      debugPrint('⚠️ Já está conectado, ignorando nova tentativa');
+      return;
+    }
+
+    // Controle de rate limiting mais rigoroso para evitar spam de conexões
     final now = DateTime.now();
     if (_lastConnectionAttempt != null) {
       final timeSinceLastAttempt = now.difference(_lastConnectionAttempt!);
-      if (timeSinceLastAttempt.inSeconds < 5) {
-        debugPrint('⚠️ Tentativa de conexão muito rápida, aguardando...');
+      if (timeSinceLastAttempt.inSeconds < 10) {
+        debugPrint(
+          '⚠️ Tentativa de conexão muito rápida, aguardando ${10 - timeSinceLastAttempt.inSeconds}s...',
+        );
         Future.delayed(
-          Duration(seconds: 5 - timeSinceLastAttempt.inSeconds),
+          Duration(seconds: 10 - timeSinceLastAttempt.inSeconds),
           () {
-            connect(url, nomeUsuario: nomeUsuario);
+            if (!_isConnected && !_isConnecting) {
+              connect(url, nomeUsuario: nomeUsuario);
+            }
           },
         );
         return;
@@ -680,8 +689,8 @@ class GameSocketService {
       return;
     }
 
-    // Verifica a cada 30 segundos se recebemos mensagens recentemente
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Verifica a cada 60 segundos se recebemos mensagens recentemente
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       // Se mudou para posicionamento, para o heartbeat
       if (_isInPlacementPhase) {
         debugPrint('💓 Mudou para posicionamento, parando heartbeat timeout');
@@ -778,8 +787,8 @@ class GameSocketService {
 
     debugPrint('💓 Iniciando keep-alive para posicionamento');
 
-    // Envia ping a cada 30 segundos durante posicionamento
-    _keepAliveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Envia ping a cada 2 minutos durante posicionamento (reduzido para evitar spam)
+    _keepAliveTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
       if (!_isInPlacementPhase) {
         debugPrint('💓 Saiu do posicionamento, parando keep-alive');
         timer.cancel();
