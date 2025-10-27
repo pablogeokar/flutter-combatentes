@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3 uid="uid://eaxqjqyqjqyqj"]
+
+[ext_resource type="Script" path="res://scripts/effects/blood_splatter_effect.gd" id="1_abcde"]
+
+[node name="BloodSplatterEffect" type="TextureRect"]
+script = ExtResource("1_abcde")
+texture = preload("res://assets/images/blood_splatter.png") # Assumindo que você tem uma imagem de respingo de sangue
+expand_mode = 1
+stretch_mode = 5
+modulate = Color(1, 1, 1, 0.8) # Começa com alguma transparência
+
+[node name="Tween" type="Tween" parent="."]

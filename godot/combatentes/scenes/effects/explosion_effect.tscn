@@ -1,0 +1,15 @@
+[gd_scene load_steps=2 format=3 uid="uid://daxqjqyqjqyqj"]
+
+[ext_resource type="Script" path="res://scripts/effects/explosion_effect.gd" id="1_abcde"]
+
+[node name="ExplosionEffect" type="TextureRect"]
+script = ExtResource("1_abcde")
+texture = preload("res://assets/images/explosion.png") # Assumindo que você tem uma imagem de explosão
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Timer" type="Timer" parent="."]
+wait_time = 0.5
+one_shot = true
+
+[connection signal="timeout" from="Timer" to="." method="_on_timer_timeout"]

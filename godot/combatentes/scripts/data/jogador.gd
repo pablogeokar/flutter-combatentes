@@ -1,6 +1,4 @@
 # jogador.gd
-# Representa um jogador na partida.
-
 extends Resource
 class_name Jogador
 
@@ -14,3 +12,10 @@ func _init(p_id: String = "", p_nome: String = "", p_equipe: Enums.Equipe = Enum
 	id = p_id
 	nome = p_nome
 	equipe = p_equipe
+
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"nome": nome,
+		"equipe": Enums.Equipe.keys()[equipe]
+	}

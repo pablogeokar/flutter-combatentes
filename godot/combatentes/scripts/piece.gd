@@ -4,6 +4,10 @@ extends Sprite2D
 const PecaJogo = preload("res://scripts/data/peca_jogo.gd")
 
 var peca_data: PecaJogo
+var is_selected: bool = false:
+	set(value):
+		is_selected = value
+		_update_selection_visual()
 
 # Configura a peça com base nos dados do Resource PecaJogo
 func setup(data: PecaJogo):
@@ -16,6 +20,13 @@ func setup(data: PecaJogo):
 	# (a lógica de equipe será adicionada depois)
 	# if peca_data.equipe != jogador_local.equipe:
 	# 	self.texture = load("res://assets/images/pecas/verso.png") # Exemplo
+	_update_selection_visual()
 
 func _ready():
 	pass
+
+func _update_selection_visual():
+	if is_selected:
+		modulate = Color("ffff00") # Amarelo para destaque
+	else:
+		modulate = Color("ffffff") # Cor normal

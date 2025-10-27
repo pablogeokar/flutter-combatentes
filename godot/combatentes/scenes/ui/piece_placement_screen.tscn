@@ -1,0 +1,51 @@
+[gd_scene load_steps=2 format=3 uid="uid://d4yqjqyqjqyqj"]
+
+[ext_resource type="Script" path="res://scripts/ui/piece_placement_screen.gd" id="1_abcde"]
+[ext_resource type="PackedScene" uid="uid://dkea33yqf2w3c" path="res://scenes/board.tscn" id="2_board"]
+
+[node name="PiecePlacementScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_abcde")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="InventoryContainer" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.3
+
+[node name="InventoryLabel" type="Label" parent="HBoxContainer/InventoryContainer"]
+layout_mode = 2
+text = "Inventário de Peças"
+horizontal_alignment = 1
+
+[node name="PiecesGrid" type="GridContainer" parent="HBoxContainer/InventoryContainer"]
+layout_mode = 2
+columns = 2
+
+[node name="BoardContainer" type="VBoxContainer" parent="HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.7
+
+[node name="Board" parent="HBoxContainer/BoardContainer" instance=ExtResource("2_board")]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ConfirmButton" type="Button" parent="HBoxContainer/BoardContainer"]
+layout_mode = 2
+text = "Confirmar Posicionamento"
+
+[node name="StatusLabel" type="Label" parent="HBoxContainer/BoardContainer"]
+layout_mode = 2
+text = "Aguardando oponente..."
+horizontal_alignment = 1
+
+[connection signal="pressed" from="HBoxContainer/BoardContainer/ConfirmButton" to="." method="_on_confirm_button_pressed"]

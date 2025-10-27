@@ -17,6 +17,9 @@ config/features=PackedStringArray("4.5", "GL Compatibility")
 [autoload]
 
 SceneManager="*res://scripts/scene_manager.gd"
+WebSocketService="*res://scripts/services/websocket_service.gd"
+Global="*res://scripts/global.gd"
+AudioService="*res://scripts/services/audio_service.gd"
 config/icon="res://icon.svg"
 
 [rendering]

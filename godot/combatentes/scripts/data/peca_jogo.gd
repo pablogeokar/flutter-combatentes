@@ -1,6 +1,4 @@
 # peca_jogo.gd
-# Representa uma única peça no tabuleiro.
-
 extends Resource
 class_name PecaJogo
 
@@ -45,3 +43,12 @@ func get_nome() -> String:
 
 func get_imagem_path() -> String:
 	return INFO_PATENTES[patente].imagem
+
+func to_dict() -> Dictionary:
+	return {
+		"id": id,
+		"patente": Enums.Patente.keys()[patente],
+		"equipe": Enums.Equipe.keys()[equipe],
+		"posicao": {"linha": posicao.y, "coluna": posicao.x},
+		"foiRevelada": foi_revelada
+	}
