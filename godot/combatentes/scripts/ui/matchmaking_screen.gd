@@ -1,14 +1,22 @@
 # matchmaking_screen.gd
 extends Control
 
-@onready var animation_player = $AnimationPlayer
-@onready var status_label = $VBoxContainer/StatusLabel
+var animation_player: AnimationPlayer
+var status_label: Label
 
 var connection_timeout: float = 10.0
 var connection_timer: float = 0.0
 var is_connecting: bool = false
 
 func _ready():
+	# Procura pelos nós na árvore
+	animation_player = find_child("AnimationPlayer", true, false)
+	status_label = find_child("StatusLabel", true, false)
+	
+	print("🔍 MATCHMAKING - Nós encontrados:")
+	print("  - AnimationPlayer: ", animation_player != null)
+	print("  - StatusLabel: ", status_label != null)
+	
 	# Inicia a animação de "loading"
 	if animation_player:
 		animation_player.play("loading")

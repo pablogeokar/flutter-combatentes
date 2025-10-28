@@ -8,7 +8,7 @@ const Equipe = preload("res://scripts/data/enums.gd").Equipe
 const PlacementStatus = preload("res://scripts/data/enums.gd").PlacementStatus
 const InventoryPieceWidgetScene = preload("res://scenes/ui/inventory_piece_widget.tscn")
 const PieceScene = preload("res://scenes/piece.tscn")
-const PlacementMessage = preload("res://scripts/data/placement_messages.gd").PlacementMessage
+const PlacementMessageClass = preload("res://scripts/data/placement_messages.gd")
 
 @onready var pieces_grid = $HBoxContainer/InventoryContainer/PiecesGrid
 @onready var confirm_button = $HBoxContainer/BoardContainer/ConfirmButton
@@ -71,7 +71,7 @@ func _update_inventory_display():
 	for child in pieces_grid.get_children():
 		child.queue_free()
 	
-	for patente_enum in Patente.values():
+	for patente_enum in range(Patente.size()):
 		var count = available_pieces.get(patente_enum, 0)
 		if count > 0:
 			var inventory_widget = InventoryPieceWidgetScene.instantiate()
@@ -185,8 +185,8 @@ func _try_place_piece(grid_pos: Vector2i):
 	_update_inventory_display()
 
 	# Envia mensagem de atualização de posicionamento para o servidor
-	var msg_data = PlacementMessage.PlacementMessageData.new(new_piece_id, selected_piece_type, grid_pos)
-	var update_message = PlacementMessage.new("PLACEMENT_UPDATE", game_id, player_id, msg_data)
+	var msg_data = PlacementMessageClass.PlacementMessageData.new(new_piece_id, selected_piece_type, grid_pos)
+	var update_message = PlacementMessageClass.new("PLACEMENT_UPDATE", game_id, player_id, msg_data)
 	WebSocketService.send_message(update_message.to_dict())
 
 	# Verifica se todas as peças foram posicionadas para habilitar o botão de confirmar
@@ -208,8 +208,8 @@ func _get_total_pieces_remaining() -> int:
 func _on_confirm_button_pressed():
 	print("Confirmar posicionamento!")
 	# Envia mensagem de confirmação de posicionamento para o servidor
-	var msg_data = PlacementMessage.PlacementMessageData.new("", Patente.PRISIONEIRO, Vector2i.ZERO, PlacementStatus.READY, placed_pieces)
-	var ready_message = PlacementMessage.new("PLACEMENT_READY", game_id, player_id, msg_data)
+	var msg_data = PlacementMessageClass.PlacementMessageData.new("", Patente.PRISIONEIRO, Vector2i.ZERO, PlacementStatus.READY, placed_pieces)
+	var ready_message = PlacementMessageClass.new("PLACEMENT_READY", game_id, player_id, msg_data)
 	WebSocketService.send_message(ready_message.to_dict())
 	status_label.text = "Aguardando oponente confirmar..."
 	confirm_button.disabled = true

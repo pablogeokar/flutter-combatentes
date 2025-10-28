@@ -66,17 +66,22 @@ func to_dict() -> Dictionary:
 		dict["data"] = data.to_dict()
 	return dict
 
-static func placement_update(game_id: String, player_id: String, piece_id: String, patente: Enums.Patente, position: Vector2i) -> PlacementMessage:
+# Métodos de conveniência para criar mensagens específicas
+func create_placement_update(piece_id: String, patente: Enums.Patente, position: Vector2i):
 	var msg_data = PlacementMessageData.new(piece_id, patente, position)
-	return PlacementMessage.new("PLACEMENT_UPDATE", game_id, player_id, msg_data)
+	type = "PLACEMENT_UPDATE"
+	data = msg_data
 
-static func placement_ready(game_id: String, player_id: String, all_pieces: Array[PecaJogo]) -> PlacementMessage:
+func create_placement_ready(all_pieces: Array[PecaJogo]):
 	var msg_data = PlacementMessageData.new("", Enums.Patente.PRISIONEIRO, Vector2i.ZERO, Enums.PlacementStatus.READY, all_pieces)
-	return PlacementMessage.new("PLACEMENT_READY", game_id, player_id, msg_data)
+	type = "PLACEMENT_READY"
+	data = msg_data
 
-static func placement_status(game_id: String, player_id: String, status: Enums.PlacementStatus) -> PlacementMessage:
+func create_placement_status(status: Enums.PlacementStatus):
 	var msg_data = PlacementMessageData.new("", Enums.Patente.PRISIONEIRO, Vector2i.ZERO, status)
-	return PlacementMessage.new("PLACEMENT_STATUS", game_id, player_id, msg_data)
+	type = "PLACEMENT_STATUS"
+	data = msg_data
 
-static func game_start(game_id: String, player_id: String) -> PlacementMessage:
-	return PlacementMessage.new("GAME_START", game_id, player_id)
+func create_game_start():
+	type = "GAME_START"
+	data = null

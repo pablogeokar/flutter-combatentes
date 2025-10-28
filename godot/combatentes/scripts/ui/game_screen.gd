@@ -49,16 +49,16 @@ func _update_game_state(new_state_data: Dictionary):
 
 	# Popula jogadores
 	for player_data in new_state_data.jogadores:
-		var equipe_enum = Enums.Equipe.values().find(player_data.equipe)
+		var equipe_enum = Enums.Equipe.get(player_data.equipe, Enums.Equipe.VERDE)
 		if equipe_enum == -1: equipe_enum = Enums.Equipe.VERDE # Default
 		current_game_state.jogadores.append(Jogador.new(player_data.id, player_data.nome, equipe_enum))
 
 	# Popula peças
 	board_node.clear_board()
 	for piece_data in new_state_data.pecas:
-		var patente_enum = Enums.Patente.values().find(piece_data.patente)
+		var patente_enum = Enums.Patente.get(piece_data.patente, Enums.Patente.PRISIONEIRO)
 		if patente_enum == -1: patente_enum = Enums.Patente.PRISIONEIRO # Default
-		var equipe_enum = Enums.Equipe.values().find(piece_data.equipe)
+		var equipe_enum = Enums.Equipe.get(piece_data.equipe, Enums.Equipe.VERDE)
 		if equipe_enum == -1: equipe_enum = Enums.Equipe.VERDE # Default
 
 		var piece = PecaJogo.new(
