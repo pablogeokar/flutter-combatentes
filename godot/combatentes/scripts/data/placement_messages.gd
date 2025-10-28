@@ -1,6 +1,6 @@
 # placement_messages.gd
 extends RefCounted
-class_name PlacementMessage, PlacementMessageData
+class_name PlacementMessage
 
 const Enums = preload("res://scripts/data/enums.gd")
 const PecaJogo = preload("res://scripts/data/peca_jogo.gd")
@@ -39,45 +39,44 @@ class PlacementMessageData:
 			dict["allPieces"] = pieces_array
 		return dict
 
-# Classe principal da mensagem de posicionamento
-class PlacementMessage:
-	var type: String
-	var game_id: String	
-	var player_id: String
-	var data: PlacementMessageData
+# Propriedades da mensagem principal
+var type: String
+var game_id: String	
+var player_id: String
+var data: PlacementMessageData
 
-	func _init(
-		p_type: String = "",
-		p_game_id: String = "",
-		p_player_id: String = "",
-		p_data: PlacementMessageData = null
-	):
-		type = p_type
-		game_id = p_game_id
-		player_id = p_player_id
-		data = p_data
+func _init(
+	p_type: String = "",
+	p_game_id: String = "",
+	p_player_id: String = "",
+	p_data: PlacementMessageData = null
+):
+	type = p_type
+	game_id = p_game_id
+	player_id = p_player_id
+	data = p_data
 
-	func to_dict() -> Dictionary:
-		var dict = {
-			"type": type,
-			"gameId": game_id,
-			"playerId": player_id,
-		}
-		if data != null:
-			dict["data"] = data.to_dict()
-		return dict
+func to_dict() -> Dictionary:
+	var dict = {
+		"type": type,
+		"gameId": game_id,
+		"playerId": player_id,
+	}
+	if data != null:
+		dict["data"] = data.to_dict()
+	return dict
 
-	static func placement_update(game_id: String, player_id: String, piece_id: String, patente: Enums.Patente, position: Vector2i) -> PlacementMessage:
-		var msg_data = PlacementMessageData.new(piece_id, patente, position)
-		return PlacementMessage.new("PLACEMENT_UPDATE", game_id, player_id, msg_data)
+static func placement_update(game_id: String, player_id: String, piece_id: String, patente: Enums.Patente, position: Vector2i) -> PlacementMessage:
+	var msg_data = PlacementMessageData.new(piece_id, patente, position)
+	return PlacementMessage.new("PLACEMENT_UPDATE", game_id, player_id, msg_data)
 
-	static func placement_ready(game_id: String, player_id: String, all_pieces: Array[PecaJogo]) -> PlacementMessage:
-		var msg_data = PlacementMessageData.new("", Enums.Patente.PRISIONEIRO, Vector2i.ZERO, Enums.PlacementStatus.READY, all_pieces)
-		return PlacementMessage.new("PLACEMENT_READY", game_id, player_id, msg_data)
+static func placement_ready(game_id: String, player_id: String, all_pieces: Array[PecaJogo]) -> PlacementMessage:
+	var msg_data = PlacementMessageData.new("", Enums.Patente.PRISIONEIRO, Vector2i.ZERO, Enums.PlacementStatus.READY, all_pieces)
+	return PlacementMessage.new("PLACEMENT_READY", game_id, player_id, msg_data)
 
-	static func placement_status(game_id: String, player_id: String, status: Enums.PlacementStatus) -> PlacementMessage:
-		var msg_data = PlacementMessageData.new("", Enums.Patente.PRISIONEIRO, Vector2i.ZERO, status)
-		return PlacementMessage.new("PLACEMENT_STATUS", game_id, player_id, msg_data)
+static func placement_status(game_id: String, player_id: String, status: Enums.PlacementStatus) -> PlacementMessage:
+	var msg_data = PlacementMessageData.new("", Enums.Patente.PRISIONEIRO, Vector2i.ZERO, status)
+	return PlacementMessage.new("PLACEMENT_STATUS", game_id, player_id, msg_data)
 
-	static func game_start(game_id: String, player_id: String) -> PlacementMessage:
-		return PlacementMessage.new("GAME_START", game_id, player_id)
+static func game_start(game_id: String, player_id: String) -> PlacementMessage:
+	return PlacementMessage.new("GAME_START", game_id, player_id)

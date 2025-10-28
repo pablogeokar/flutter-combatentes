@@ -2,8 +2,10 @@
 extends Control
 
 const PecaJogo = preload("res://scripts/data/peca_jogo.gd")
+const Enums = preload("res://scripts/data/enums.gd")
 const Patente = preload("res://scripts/data/enums.gd").Patente
 const Equipe = preload("res://scripts/data/enums.gd").Equipe
+const PlacementStatus = preload("res://scripts/data/enums.gd").PlacementStatus
 const InventoryPieceWidgetScene = preload("res://scenes/ui/inventory_piece_widget.tscn")
 const PieceScene = preload("res://scenes/piece.tscn")
 const PlacementMessage = preload("res://scripts/data/placement_messages.gd").PlacementMessage
@@ -25,17 +27,28 @@ var player_id: String
 var player_placement_area_rows: Array[int] # Linhas válidas para posicionamento
 
 func _ready():
+	print("🎯 PLACEMENT_SCREEN - Inicializando tela de posicionamento...")
+	
 	# Recupera informações da partida do Global
 	game_id = Global.game_id
 	player_id = Global.player_id
 	player_placement_area_rows = Global.player_area
+	
+	print("🎯 PLACEMENT_SCREEN - Dados recuperados do Global:")
+	print("  - game_id: ", game_id)
+	print("  - player_id: ", player_id)
+	print("  - player_area: ", player_placement_area_rows)
 
+	print("🎯 PLACEMENT_SCREEN - Inicializando inventário...")
 	_initialize_inventory()
 	_update_inventory_display()
 	confirm_button.disabled = true # Desabilita até todas as peças serem posicionadas
 
+	print("🎯 PLACEMENT_SCREEN - Conectando aos sinais do WebSocket...")
 	# Conecta aos sinais do WebSocketService para receber atualizações do oponente
 	WebSocketService.connect("message_received", Callable(self, "_on_websocket_message_received"))
+	
+	print("✅ PLACEMENT_SCREEN - Inicialização concluída!")
 
 func _initialize_inventory():
 	# Lógica para criar o inventário inicial de peças (similar a createInitialInventory() do Flutter)
@@ -172,8 +185,9 @@ func _try_place_piece(grid_pos: Vector2i):
 	_update_inventory_display()
 
 	# Envia mensagem de atualização de posicionamento para o servidor
-	var update_message = PlacementMessage.placement_update(game_id, player_id, new_piece_id, selected_piece_type, grid_pos)
-	WebSocketService.send_message(update_message.to_dict()) # to_dict() será implementado nas classes de mensagem
+	var msg_data = PlacementMessage.PlacementMessageData.new(new_piece_id, selected_piece_type, grid_pos)
+	var update_message = PlacementMessage.new("PLACEMENT_UPDATE", game_id, player_id, msg_data)
+	WebSocketService.send_message(update_message.to_dict())
 
 	# Verifica se todas as peças foram posicionadas para habilitar o botão de confirmar
 	if _get_total_pieces_remaining() == 0:
@@ -194,8 +208,9 @@ func _get_total_pieces_remaining() -> int:
 func _on_confirm_button_pressed():
 	print("Confirmar posicionamento!")
 	# Envia mensagem de confirmação de posicionamento para o servidor
-	var ready_message = PlacementMessage.placement_ready(game_id, player_id, placed_pieces)
-	WebSocketService.send_message(ready_message.to_dict()) # to_dict() será implementado nas classes de mensagem
+	var msg_data = PlacementMessage.PlacementMessageData.new("", Patente.PRISIONEIRO, Vector2i.ZERO, PlacementStatus.READY, placed_pieces)
+	var ready_message = PlacementMessage.new("PLACEMENT_READY", game_id, player_id, msg_data)
+	WebSocketService.send_message(ready_message.to_dict())
 	status_label.text = "Aguardando oponente confirmar..."
 	confirm_button.disabled = true
 
@@ -206,7 +221,7 @@ func _on_websocket_message_received(message_data):
 		match message_data.type:
 			"PLACEMENT_STATUS_UPDATE":
 				# Atualiza o status do oponente
-				if message_data.data.status == Enums.PlacementStatus.READY:
+				if message_data.data.status == PlacementStatus.READY:
 					status_label.text = "Oponente pronto! Aguardando seu posicionamento."
 			"GAME_START":
 				print("Jogo vai começar!")
