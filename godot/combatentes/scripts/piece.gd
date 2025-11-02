@@ -1,7 +1,7 @@
 # piece.gd
 extends Sprite2D
 
-const PecaJogo = preload("res://scripts/data/peca_jogo.gd")
+
 
 var peca_data: PecaJogo
 var is_selected: bool = false:

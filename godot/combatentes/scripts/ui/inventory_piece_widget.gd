@@ -4,7 +4,7 @@ extends PanelContainer
 signal piece_selected(patente_enum)
 
 const Patente = preload("res://scripts/data/enums.gd").Patente
-const PecaJogo = preload("res://scripts/data/peca_jogo.gd") # Para acessar INFO_PATENTES
+
 
 @onready var piece_image = $VBoxContainer/PieceImage
 @onready var piece_name_label = $VBoxContainer/PieceName

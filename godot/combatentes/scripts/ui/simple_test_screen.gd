@@ -1,6 +1,8 @@
 # simple_test_screen.gd
 extends Control
 
+var line_edit: LineEdit
+
 func _ready():
 	print("✅ SIMPLE_TEST_SCREEN - Carregado com sucesso!")
 	
@@ -19,16 +21,16 @@ func _ready():
 	instruction.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(instruction)
 	
-	var line_edit = LineEdit.new()
+	line_edit = LineEdit.new()
 	line_edit.placeholder_text = "Digite seu nome..."
 	vbox.add_child(line_edit)
 	
 	var button = Button.new()
 	button.text = "Começar"
-	button.pressed.connect(_on_start_pressed.bind(line_edit))
+	button.pressed.connect(_on_start_pressed)
 	vbox.add_child(button)
 
-func _on_start_pressed(line_edit: LineEdit):
+func _on_start_pressed():
 	var player_name = line_edit.text
 	if player_name.is_empty():
 		player_name = "Jogador"
@@ -46,4 +48,4 @@ func _on_start_pressed(line_edit: LineEdit):
 
 func _input(event):
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ENTER:
-		_on_start_pressed(find_child("LineEdit", true, false))
+		_on_start_pressed()

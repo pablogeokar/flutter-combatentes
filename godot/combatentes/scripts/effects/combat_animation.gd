@@ -10,9 +10,13 @@ const PecaJogo = preload("res://scripts/data/peca_jogo.gd")
 @onready var outcome_label = $CenterContainer/VBoxContainer/OutcomeLabel
 @onready var timer = $Timer
 
+var current_combat_info: Dictionary
+
 func play_animation(combat_info: Dictionary):
 	# Exemplo de combat_info:
 	# {"attackingPiece": {id: "...", patente: "...", ...}, "defendingPiece": {...}, "winnerPieceId": "..."}
+	
+	self.current_combat_info = combat_info
 
 	combat_label.text = "COMBATE!"
 	vs_label.text = "VS"
@@ -33,7 +37,7 @@ func play_animation(combat_info: Dictionary):
 
 func _on_timer_timeout():
 	# Após o timer, mostra o resultado (simplificado por enquanto)
-	outcome_label.text = "Peça " + str(combat_info.winnerPieceId) + " venceu!"
+	outcome_label.text = "Peça " + str(current_combat_info.winnerPieceId) + " venceu!"
 	# Toca som de explosão se uma mina foi atingida, ou outro som de vitória/derrota
 	# AudioService.play_sound("res://assets/sounds/explosao.wav") # Exemplo
 

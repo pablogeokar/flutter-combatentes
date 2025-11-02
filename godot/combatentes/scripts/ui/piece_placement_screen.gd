@@ -1,7 +1,7 @@
 # piece_placement_screen.gd
 extends Control
 
-const PecaJogo = preload("res://scripts/data/peca_jogo.gd")
+
 const Enums = preload("res://scripts/data/enums.gd")
 const Patente = preload("res://scripts/data/enums.gd").Patente
 const Equipe = preload("res://scripts/data/enums.gd").Equipe
@@ -68,29 +68,28 @@ func _initialize_inventory():
 	}
 
 func _update_inventory_display():
-	for child in pieces_grid.get_children():
+	for child in pieces_grid.get_children() as Array[PanelContainer]:
 		child.queue_free()
 	
 	for patente_enum in range(Patente.size()):
 		var count = available_pieces.get(patente_enum, 0)
 		if count > 0:
 			var inventory_widget = InventoryPieceWidgetScene.instantiate()
+			pieces_grid.add_child(inventory_widget)
 			inventory_widget.setup(patente_enum, count)
 			inventory_widget.connect("piece_selected", _on_inventory_piece_selected)
-			pieces_grid.add_child(inventory_widget)
-
 func _on_inventory_piece_selected(patente: Patente):
 	# Desseleciona a peça anterior, se houver
-	for child in pieces_grid.get_children():
-		if child is PanelContainer and child.has_method("set_is_selected"):
+	for child in pieces_grid.get_children() as Array[PanelContainer]:
+		if child.has_method("set_is_selected"):
 			child.set_is_selected(false)
 
 	selected_piece_type = patente
 	print("Peça selecionada para posicionamento: ", Patente.keys()[patente])
 	
 	# Encontra o widget selecionado e o marca como selecionado
-	for child in pieces_grid.get_children():
-		if child is PanelContainer and child.has_method("get_current_patente") and child.get_current_patente() == patente:
+	for child in pieces_grid.get_children() as Array[PanelContainer]:
+		if child.has_method("get_current_patente") and child.get_current_patente() == patente:
 			child.set_is_selected(true)
 			break
 

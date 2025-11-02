@@ -16,7 +16,6 @@ import 'package:combatentes/src/features/1_initial_setup/ui/dialogs/server_confi
 import 'package:combatentes/src/features/1_initial_setup/ui/screens/matchmaking_screen.dart';
 import 'package:combatentes/src/common/widgets/military_theme_widgets.dart';
 import 'package:combatentes/src/features/3_gameplay/ui/dialogs/game_reconnection_dialog.dart';
-import 'package:flutter/foundation.dart';
 
 /// A tela principal do jogo, agora como um ConsumerStatefulWidget que reage às mudanças de estado do Riverpod.
 class TelaJogo extends ConsumerStatefulWidget {
@@ -169,9 +168,6 @@ class _TelaJogoState extends ConsumerState<TelaJogo> {
     });
 
     return Scaffold(
-      backgroundColor: const Color(
-        0xFF1B5E20,
-      ), // Verde militar escuro como fallback
       appBar: AppBar(
         title: Row(
           children: [

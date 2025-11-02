@@ -3,7 +3,7 @@ extends RefCounted
 class_name PlacementMessage
 
 const Enums = preload("res://scripts/data/enums.gd")
-const PecaJogo = preload("res://scripts/data/peca_jogo.gd")
+
 
 # Classe interna para os dados da mensagem
 class PlacementMessageData:
